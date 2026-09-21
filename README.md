@@ -81,10 +81,20 @@ Two commands in one breath work too: "go to example dot com and click the more i
 Every transcript update produces exactly one Jev request (`src/jev.js`). State:
 
 ```json
-{ "transcript": "click the first result",
-  "page": { "url": "...", "title": "...", "site": "duckduckgo" },
-  "elements": ["e02 combobox \"jev typesafe\" (placeholder: Search privately)", "e20 link \"TypeSafe — Jev\" → typesafe.ai", "..."] }
+{ "transcript": "open the documentation",
+  "page": { "url": "https://typesafe.ai/jev", "title": "Jev", "site": "generic" },
+  "elements": ["e03 link \"Documentation\" → docs.typesafe.ai", "e07 link \"Read the docs\" → docs.typesafe.ai", "..."],
+  "context": {
+    "previous_page": { "url": "https://duckduckgo.com/?q=jev+typesafe", "title": "jev typesafe at DuckDuckGo" },
+    "recent_actions": [
+      { "said": "click the first result", "action": "click_element", "target": "link \"TypeSafe — Jev\"", "outcome": "navigated to typesafe.ai/jev", "seconds_ago": 6 },
+      { "said": "search for jev typesafe", "action": "navigate_url", "outcome": "navigated to duckduckgo.com/?q=jev+typesafe", "seconds_ago": 25 } ] } }
 ```
+
+`context` is the conversation so far: the page you came from and the last three executed actions
+(what you said, what was done, what happened). It is what makes "go back to the results", "no, not
+that one", "the other one" and "open its documentation" resolvable — Jev has no memory between
+requests, so the memory lives in the state.
 
 Questions (all in `src/constants.js`, asked together, answered in parallel):
 
@@ -100,9 +110,14 @@ Questions (all in `src/constants.js`, asked together, answered in parallel):
 | `text_span` | Choice | verbatim candidate spans extracted by regex (+ `none`) — only when the transcript has any |
 | `url_span` | Choice | domain-looking spans (+ `none`) — only when present |
 | `tab_direction` | Choice | next · previous · first · none |
+| `is_correction` | Noul | is the user rejecting / redirecting the most recent action in `context.recent_actions`? — only asked when there is history |
 
 Policy (`src/policy.js`, thresholds `T` in `constants.js`), shown live in the UI as a gate table:
 
+0. `is_correction ≥ 0.6` on a finished phrase: with no confident new command ("no, not that one",
+   "undo that") → reverse the last action (click/navigate → back, typing → clear, scroll → opposite);
+   with a new target ("no, the other one") → the previously clicked element is excluded from the
+   candidates. A confident closed-set command ("go back" after a scroll) is never treated as a correction.
 1. `is_command ≥ 0.5` else **ignore**
 2. `intent.confidence ≥ 0.55` and not `none` else **wait**
 3. `complete ≥ 0.6`, or 900 ms of silence, or the recognizer's final result — else **wait**
@@ -131,8 +146,8 @@ src/overlay.js     injected highlight / toast / numbered badges
 src/controller.js  debounce, in-flight management, one action per utterance, chaining, stats
 src/server.js      Express + ws, serves src/public/index.html (control page)
 scripts/demo.js    word-by-word replay against real sites = end-to-end test
-test/unit/         spans, snapshot compaction, policy (mocked Jev), controller (mocked Jev + browser)
-test/integration/  27 real-API cases on captured page fixtures, prints pass rate + latency
+test/unit/         spans, snapshot compaction, policy (mocked Jev), controller (mocked Jev + browser), context encoding + corrections
+test/integration/  34 real-API cases on captured page fixtures (incl. context / correction), prints pass rate + latency
 ```
 
 ## Tests and demo
@@ -145,7 +160,7 @@ npm run demo:ci          # same, headless; exit code 1 on failure
 node scripts/demo.js --headless --only 1,2,3 --word-ms 250
 ```
 
-Latest measured (Sep 2026, from this machine): integration 27/27 (100%), Jev latency avg ≈ 330 ms
+Latest measured (Sep 2026, from this machine): integration 34/34 (100%, incl. 7 context/correction cases), Jev latency avg ≈ 330 ms
 (p50 ≈ 300 ms, 3–6k input tokens per request; the first request of a process is ~700 ms for the
 TLS handshake), last-word→decision ≈ 300 ms including the 200 ms debounce, whole demo ≈ $0.01.
 

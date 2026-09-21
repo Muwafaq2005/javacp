@@ -100,6 +100,50 @@ const CASES = [
   { name: "missing element waits", transcript: "click sign in", snapshot: "example", intent: "click_element", decisionIn: ["wait", "disambiguate"] },
 ];
 
+// --- Context-aware cases: the user just searched DuckDuckGo and clicked the first result. ---
+const PRODUCT_PAGE = {
+  url: "https://typesafe.ai/jev",
+  title: "Jev — the System One model | TypeSafe",
+  site: "generic",
+  searchBoxId: null,
+  elements: [
+    { id: "e01", role: "link", text: "TypeSafe", href: "typesafe.ai" },
+    { id: "e02", role: "link", text: "Product" },
+    { id: "e03", role: "link", text: "Documentation", href: "docs.typesafe.ai" },
+    { id: "e04", role: "link", text: "Pricing" },
+    { id: "e05", role: "link", text: "Blog" },
+    { id: "e06", role: "button", text: "Get an API key" },
+    { id: "e07", role: "link", text: "Read the docs", href: "docs.typesafe.ai/introduction" },
+    { id: "e08", role: "link", text: "Join Discord", href: "discord.com" },
+  ],
+};
+const AFTER_CLICK_CONTEXT = {
+  previousPage: { url: "https://duckduckgo.com/?q=jev+typesafe", title: "jev typesafe at DuckDuckGo", site: "duckduckgo" },
+  recentActions: [
+    { type: "navigate_url", url: "https://duckduckgo.com/?q=jev+typesafe", said: "search for jev typesafe", ok: true, outcome: "navigated to duckduckgo.com/?q=jev+typesafe", at: Date.now() - 25_000 },
+    { type: "click_element", targetId: "e20", targetLabel: 'link "TypeSafe — Jev, the System One model"', said: "click the first result", ok: true, outcome: "navigated to typesafe.ai/jev", at: Date.now() - 6_000 },
+  ],
+};
+const ON_RESULTS_AFTER_CLICK = {
+  previousPage: { url: "https://duckduckgo.com/?q=jev+typesafe", title: "jev typesafe at DuckDuckGo", site: "duckduckgo" },
+  recentActions: [
+    { type: "click_element", targetId: "e20", targetLabel: 'link "TypeSafe — Jev, the System One model"', said: "click the first result", ok: true, outcome: "navigated to typesafe.ai/jev", at: Date.now() - 8_000 },
+    { type: "go_back", said: "go back", ok: true, outcome: "navigated to duckduckgo.com/?q=jev+typesafe", at: Date.now() - 3_000 },
+  ],
+};
+
+CASES.push(
+  { name: "ctx: open the documentation", transcript: "open the documentation", snapshot: PRODUCT_PAGE, context: AFTER_CLICK_CONTEXT, intent: "click_element", targetIn: ["e03", "e07"], decision: "act" },
+  { name: "ctx: back to the results", transcript: "go back to the search results", snapshot: PRODUCT_PAGE, context: AFTER_CLICK_CONTEXT, intent: "go_back", decision: "act" },
+  { name: "ctx: correction reverses", transcript: "no not that one", snapshot: PRODUCT_PAGE, context: AFTER_CLICK_CONTEXT, correction: true, actionType: "go_back", decision: "act" },
+  { name: "ctx: wrong link undo", transcript: "wrong link, undo that", snapshot: PRODUCT_PAGE, context: AFTER_CLICK_CONTEXT, correction: true, actionType: "go_back", decision: "act" },
+  { name: "ctx: the other one", transcript: "no, the other one", snapshot: SEARCH_RESULTS, context: ON_RESULTS_AFTER_CLICK, correction: true, intent: "click_element", targetNot: "e20", decisionIn: ["act", "disambiguate"] },
+  { name: "ctx: follow-up not a correction", transcript: "scroll down a bit", snapshot: PRODUCT_PAGE, context: AFTER_CLICK_CONTEXT, correction: false, intent: "scroll_down", decision: "act" },
+  // The fixture lists each result's URL line as its own link right after the title (e20 title, e21 url,
+  // e22 second title), so "second result" is genuinely ambiguous at the element level; both are accepted.
+  { name: "ctx: second result after back", transcript: "click the second result", snapshot: SEARCH_RESULTS, context: ON_RESULTS_AFTER_CLICK, intent: "click_element", targetIn: ["e21", "e22"], decision: "act" },
+);
+
 const results = [];
 
 before(() => {
@@ -109,12 +153,17 @@ before(() => {
 for (const c of CASES) {
   test(`jev: ${c.name} — "${c.transcript}"`, { skip: !hasApiKey() }, async () => {
     const snapshot = typeof c.snapshot === "string" ? fixture(c.snapshot) : c.snapshot;
-    const r = await decide({ transcript: c.transcript, snapshot });
-    const policy = evaluatePolicy({ answers: r.answers, candidates: r.candidates, snapshot, isFinal: c.final !== false });
+    const r = await decide({ transcript: c.transcript, snapshot, context: c.context ?? null });
+    const policy = evaluatePolicy({ answers: r.answers, candidates: r.candidates, snapshot, isFinal: c.final !== false, context: c.context ?? null });
     const a = r.answers;
     const failures = [];
     if (c.intent && a.intent.choice !== c.intent) failures.push(`intent ${a.intent.choice} != ${c.intent} (conf ${a.intent.confidence.toFixed(2)})`);
     if (c.target && a.target.choice !== c.target) failures.push(`target ${a.target.choice} != ${c.target} (conf ${a.target.confidence.toFixed(2)})`);
+    if (c.targetIn && !c.targetIn.includes(policy.action?.targetId ?? a.target.choice)) failures.push(`target ${policy.action?.targetId ?? a.target.choice} not in ${c.targetIn}`);
+    if (c.targetNot && policy.action?.targetId === c.targetNot) failures.push(`target ${policy.action.targetId} should not be ${c.targetNot}`);
+    if (c.correction === true && (a.is_correction?.noul ?? 0) < 0.6) failures.push(`is_correction ${(a.is_correction?.noul ?? 0).toFixed(2)} < 0.6`);
+    if (c.correction === false && (a.is_correction?.noul ?? 0) >= 0.6) failures.push(`is_correction ${(a.is_correction?.noul ?? 0).toFixed(2)} >= 0.6`);
+    if (c.actionType && policy.action?.type !== c.actionType) failures.push(`action ${policy.action?.type} != ${c.actionType}`);
     if (c.decision && policy.decision !== c.decision) failures.push(`decision ${policy.decision} != ${c.decision} (${policy.summary})`);
     if (c.decisionIn && !c.decisionIn.includes(policy.decision)) failures.push(`decision ${policy.decision} not in ${c.decisionIn} (${policy.summary})`);
     if (c.text && policy.action?.text !== c.text && policy.action?.query !== c.text) failures.push(`text ${JSON.stringify(policy.action?.text ?? policy.action?.query)} != ${JSON.stringify(c.text)}`);

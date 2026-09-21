@@ -91,6 +91,15 @@ export class BrowserManager {
     return this.pages.map((p, i) => ({ index: i, url: p.url(), active: p === this.active }));
   }
 
+  /** URL of the active page, or null (sync; used to record what an action led to). */
+  currentUrl() {
+    try {
+      return this.active && !this.active.isClosed() ? this.active.url() : null;
+    } catch {
+      return null;
+    }
+  }
+
   /** Snapshot the active page (URL, title, compact element list, search box, site). */
   async snapshot() {
     const page = await this.ensurePage();

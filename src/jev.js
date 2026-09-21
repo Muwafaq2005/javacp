@@ -5,7 +5,7 @@
  * API key stays server-side. Reads TYPESAFE_API_KEY, falling back to JEV_API_KEY.
  */
 import { TypeSafeClient, choice, noul, score, APIUserAbortError } from "@typesafe-ai/sdk";
-import { MODEL, PRICE_PER_M_INPUT_TOKENS_USD, QUESTIONS, MAX_TRANSCRIPT_CHARS } from "./constants.js";
+import { MODEL, PRICE_PER_M_INPUT_TOKENS_USD, QUESTIONS, MAX_TRANSCRIPT_CHARS, MAX_CONTEXT_ACTIONS } from "./constants.js";
 import { extractTextCandidates, extractUrlCandidates } from "./spans.js";
 
 let _client = null;
@@ -61,7 +61,36 @@ export function encodeElement(el, pageHost = "") {
  * Build the state object and question map for one decision.
  * Exported so tests can inspect exactly what Jev sees.
  */
-export function buildRequest({ transcript, snapshot, pendingConfirmation = null, tabs = null }) {
+/**
+ * Compact conversation context: where the user just came from and the last few executed actions,
+ * most recent first. `null` when nothing has happened yet.
+ */
+export function encodeContext(context) {
+  if (!context) return null;
+  const out = {};
+  if (context.previousPage?.url) {
+    out.previous_page = {
+      url: String(context.previousPage.url).slice(0, 200),
+      title: String(context.previousPage.title || "").slice(0, 120),
+    };
+  }
+  const actions = (context.recentActions || []).slice(-MAX_CONTEXT_ACTIONS).reverse();
+  if (actions.length) {
+    const now = Date.now();
+    out.recent_actions = actions.map((a) => {
+      const e = { said: String(a.said || "").slice(0, 120), action: a.type };
+      if (a.targetLabel) e.target = String(a.targetLabel).slice(0, 80);
+      if (a.text) e.text = String(a.text).slice(0, 80);
+      if (a.url) e.url = String(a.url).slice(0, 200);
+      e.outcome = a.outcome || (a.ok === false ? "failed" : "done");
+      if (a.at) e.seconds_ago = Math.max(0, Math.round((now - a.at) / 1000));
+      return e;
+    });
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+export function buildRequest({ transcript, snapshot, pendingConfirmation = null, tabs = null, context = null }) {
   const text = String(transcript || "").slice(-MAX_TRANSCRIPT_CHARS);
   const textCandidates = extractTextCandidates(text);
   const urlCandidates = extractUrlCandidates(text);
@@ -79,6 +108,8 @@ export function buildRequest({ transcript, snapshot, pendingConfirmation = null,
     // options are these ids; their text lives here (semantic-find pattern) to halve token use.
     elements: elements.map((el) => encodeElement(el, pageHost)),
   };
+  const ctx = encodeContext(context);
+  if (ctx) state.context = ctx;
   if (pendingConfirmation) state.pending_confirmation = pendingConfirmation;
   if (tabs && tabs.length > 1) state.open_tabs = tabs.length;
 
@@ -96,6 +127,9 @@ export function buildRequest({ transcript, snapshot, pendingConfirmation = null,
     scroll_amount: score(QUESTIONS.scroll_amount.instructions, QUESTIONS.scroll_amount.criteria),
     tab_direction: choice(QUESTIONS.tab_direction.instructions, QUESTIONS.tab_direction.criteria),
   };
+  if (ctx?.recent_actions?.length) {
+    questions.is_correction = noul(QUESTIONS.is_correction.instructions, QUESTIONS.is_correction.criteria);
+  }
 
   if (textCandidates.length) {
     const c = Object.fromEntries(textCandidates.map((s) => [s, null]));

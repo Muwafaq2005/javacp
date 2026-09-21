@@ -23,6 +23,11 @@ export const MAX_ELEMENTS = 100; // hard cap on elements sent to Jev (255 is the
 export const MAX_ELEMENT_TEXT = 60; // chars per element label
 export const MAX_STATE_CHARS = 24_000; // ~6k tokens; far below the 32k-token state limit
 export const MAX_TRANSCRIPT_CHARS = 400;
+// Conversation context sent with every request: the page before the last navigation and the
+// last few executed actions (what was said, what was done, what happened). Lets Jev resolve
+// "go back to the results", "the other one", "no, not that one", "open the documentation" (of the
+// thing I just opened). Small on purpose — irrelevant state costs accuracy.
+export const MAX_CONTEXT_ACTIONS = 3;
 
 // ---------------------------------------------------------------------------
 // Timing
@@ -51,6 +56,7 @@ export const T = {
   targetTopProb: 0.35, // and the winning element must have at least this probability
   spanConfidence: 0.35, // `text_span` / `url_span` picks below this fall back to the heuristic candidate
   candidateCount: 3, // how many candidates to overlay when target is ambiguous
+  correction: 0.6, // `is_correction` Noul: user is undoing / redirecting the previous action ("no, not that one")
 };
 
 export const TARGET_INTENTS = new Set(["click_element", "type_into_field", "select_option"]);
@@ -200,7 +206,7 @@ export const QUESTIONS = {
     instructions: {
       question: "Which browser action does the user ask for in `transcript`?",
       focus:
-        "Judge the words said so far. If the sentence is unfinished, pick the action the words already commit to; if no action is recognizable pick none. `page` and `elements` describe what is currently on screen.",
+        "Judge the words said so far. If the sentence is unfinished, pick the action the words already commit to; if no action is recognizable pick none. `page` and `elements` describe what is currently on screen. `context.previous_page` and `context.recent_actions` (most recent first) say where the user just came from and what was just done: 'back to the results' after clicking a search result is go_back; 'the other one' or 'not that one' after a click is click_element on a different element.",
     },
     criteria: INTENT_CRITERIA,
   },
@@ -210,7 +216,7 @@ export const QUESTIONS = {
       question:
         "Which element in `elements` is the one the user refers to in `transcript` (the thing to click, type into or select)? Each line of `elements` starts with the element id (e.g. e07), then its role and visible text; the options are those ids.",
       focus:
-        "Match by the element's visible text, role and position words like first/second/top (lines are in visual order, top of page first). Pick none if the command does not refer to any element on this page, or if the referenced element is not in the list.",
+        "Match by the element's visible text, role and position words like first/second/top (lines are in visual order, top of page first). Use `context.recent_actions` for relative references: 'the other one' / 'the next one' / 'not that one' mean an element other than the target of the most recent action; 'open its documentation' means the docs of the page or item just opened. Pick none if the command does not refer to any element on this page, or if the referenced element is not in the list.",
     },
     // criteria are built per request from the element list + none
   },
@@ -237,7 +243,7 @@ export const QUESTIONS = {
       },
       false: {
         what: "Cut off before the required object; more words are clearly coming",
-        examples: ["go to", "search for", "click the", "type", "open the"],
+        examples: ["go to", "search for", "click the", "type", "open the", "scroll"],
       },
     },
   },
@@ -246,10 +252,14 @@ export const QUESTIONS = {
     instructions: {
       question:
         "Is `transcript` an instruction addressed to a web browser (navigate, search, click, type, scroll, tabs, confirm/cancel)?",
-      focus: "Chit-chat, narration, talking to another person, or a stray fragment is not a command.",
+      focus:
+        "Chit-chat, narration, talking to another person, or a stray fragment is not a command. A reaction to what the browser just did in `context.recent_actions` ('no, not that one', 'undo that', 'wrong link', 'yes confirm') IS addressed to the browser.",
     },
     criteria: {
-      true: { what: "An imperative aimed at the browser", examples: ["scroll down", "go to youtube", "click sign in"] },
+      true: {
+        what: "An imperative aimed at the browser, or a correction / confirmation of its last action",
+        examples: ["scroll down", "go to youtube", "click sign in", "no not that one", "undo that", "confirm"],
+      },
       false: {
         what: "Not directed at the browser",
         examples: ["I think we should get lunch", "um so yeah", "this is the demo", "what did you say"],
@@ -300,6 +310,26 @@ export const QUESTIONS = {
     instructions: {
       question: "Which option is the web address (domain) the user wants to open, as spoken in `transcript`?",
       focus: "Pick none if no address is mentioned.",
+    },
+  },
+
+  // Only asked when `context.recent_actions` is non-empty.
+  is_correction: {
+    instructions: {
+      question:
+        "Is the user in `transcript` saying that the most recent action in `context.recent_actions` was wrong and should be reversed or redirected?",
+      focus:
+        "A correction reacts to what just happened ('no', 'not that one', 'wrong link', 'undo that', 'the other one', 'I meant the second one'). A fresh command that merely follows the previous action is not a correction.",
+    },
+    criteria: {
+      true: {
+        what: "Rejects or redirects the previous action",
+        examples: ["no not that one", "wrong one, go back", "undo that", "I meant the other link", "not that, the second one"],
+      },
+      false: {
+        what: "A new command or a continuation, satisfied with the previous action",
+        examples: ["scroll down", "now click the comments", "open the documentation", "search for cats"],
+      },
     },
   },
 

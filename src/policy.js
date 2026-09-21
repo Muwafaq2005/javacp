@@ -53,10 +53,16 @@ function fillTemplate(tpl, q) {
  * @param {boolean} p.confirmed  user already said confirm for this action
  * @returns {{decision: string, action?: object, candidates?: Array, reasons: Array, summary: string}}
  */
-export function evaluatePolicy({ answers, candidates, snapshot, silentMs = 0, isFinal = false, pending = null }) {
+export function evaluatePolicy({ answers, candidates, snapshot, silentMs = 0, isFinal = false, pending = null, context = null }) {
   const reasons = [];
   const intent = answers.intent;
   const intentName = intent?.choice ?? "none";
+  const lastAction = context?.recentActions?.length ? context.recentActions[context.recentActions.length - 1] : null;
+  const correction = answers.is_correction?.noul ?? 0;
+  // A correction only counts once the phrase is finished (or the user has gone quiet): a one-word
+  // partial like "go" right after a scroll must not be read as "undo the scroll".
+  const finishedPhrase = (answers.complete?.noul ?? 0) >= T.complete || silentMs >= SILENCE_COMPLETE_MS || isFinal;
+  const isCorrection = Boolean(lastAction) && correction >= T.correction && finishedPhrase;
 
   // 0. Confirm / cancel handling for a pending destructive action.
   if (pending) {
@@ -70,7 +76,28 @@ export function evaluatePolicy({ answers, candidates, snapshot, silentMs = 0, is
     }
   }
 
-  // 1. Is the user talking to the browser at all?
+  // 1. Correction of the previous action ("no, not that one", "wrong link, undo"). A bare "no"
+  // is a reaction to the browser, not a fresh imperative, so this runs before the is_command gate.
+  // When the user rejects what just happened and names no new target, reverse it; when they do
+  // name a new target ("no, the other one") fall through and exclude the previous target below.
+  if (isCorrection) {
+    check(reasons, "is_correction", correction, T.correction, true, `rejects previous action: ${describe(lastAction)}`);
+    const confidentIntent = intentName !== "none" && (intent?.confidence ?? 0) >= T.intentConfidence;
+    // "the other one" names a new element; "not that one" alone does not (target comes back `none`
+    // or the element just acted on) — the latter is a plain reversal.
+    const namesNewTarget =
+      TARGET_INTENTS.has(intentName) && topChoices(answers.target, 2).some((c) => c.id !== lastAction.targetId && c.p >= T.targetTopProb);
+    // A confident closed-set command ("go back", "scroll down", "open youtube") said after a scroll
+    // or click is what it says, not a request to reverse the last action: fall through to normal
+    // handling. Only an unconfident / target-less correction is treated as "undo that".
+    const reverse = lastAction.type !== "go_back" && (!confidentIntent || (TARGET_INTENTS.has(intentName) && !namesNewTarget));
+    if (reverse) {
+      const reversal = reverseAction(lastAction);
+      return { decision: "act", action: reversal, reasons, summary: `correction → ${describe(reversal)}` };
+    }
+  }
+
+  // 1b. Is the user talking to the browser at all?
   const isCmd = answers.is_command?.noul ?? 0;
   if (!check(reasons, "is_command", isCmd, T.isCommand, isCmd >= T.isCommand, "user is addressing the browser")) {
     return { decision: "ignore", reasons, summary: "not a browser command" };
@@ -113,7 +140,9 @@ export function evaluatePolicy({ answers, candidates, snapshot, silentMs = 0, is
   }
 
   // 4. Build the concrete action (code owns URLs, templates and text; Jev only picked options).
-  const built = buildAction({ intentName, answers, candidates, snapshot, reasons });
+  // On a correction that names a new target, the previous target is not an option ("the other one").
+  const excludeTargetId = isCorrection && TARGET_INTENTS.has(intentName) ? lastAction.targetId ?? null : null;
+  const built = buildAction({ intentName, answers, candidates, snapshot, reasons, excludeTargetId });
   if (built.decision !== "act") return { ...built, reasons };
   const action = built.action;
 
@@ -131,7 +160,27 @@ export function evaluatePolicy({ answers, candidates, snapshot, silentMs = 0, is
   return { decision: "act", action, reasons, summary: describe(action) };
 }
 
-function buildAction({ intentName, answers, candidates, snapshot, reasons }) {
+/** The action that undoes `action` as far as a browser can: navigations/clicks → back; typing → clear; tabs → close/switch. */
+export function reverseAction(action) {
+  switch (action?.type) {
+    case "type_into_field":
+      return { type: "type_into_field", targetId: action.targetId, text: "", submit: false, label: `clear ${action.label || action.targetId}` };
+    case "open_new_tab":
+      return { type: "close_tab", label: "close the new tab" };
+    case "close_tab":
+      return { type: "go_back", label: "back (tab already closed)" };
+    case "switch_tab":
+      return { type: "switch_tab", direction: action.direction === "previous" ? "next" : "previous", label: "switch back" };
+    case "scroll_down":
+      return { type: "scroll_up", amount: action.amount || "page", label: "scroll back up" };
+    case "scroll_up":
+      return { type: "scroll_down", amount: action.amount || "page", label: "scroll back down" };
+    default:
+      return { type: "go_back", label: `undo ${describe(action)}` };
+  }
+}
+
+function buildAction({ intentName, answers, candidates, snapshot, reasons, excludeTargetId = null }) {
   const site = answers.site?.choice ?? "none";
   const elements = snapshot?.elements ?? [];
 
@@ -170,10 +219,19 @@ function buildAction({ intentName, answers, candidates, snapshot, reasons }) {
     case "select_option":
     case "type_into_field": {
       const target = answers.target;
-      const top = topChoices(target, T.candidateCount);
-      const chosen = target?.choice;
+      let top = topChoices(target, T.candidateCount + 1);
+      let chosen = target?.choice;
+      let chosenP = target?.probabilities?.[chosen] ?? 0;
+      if (excludeTargetId && chosen === excludeTargetId) {
+        // "no, the other one": the element just acted on is ruled out; take the runner-up.
+        top = top.filter((c) => c.id !== excludeTargetId);
+        chosen = top[0]?.id ?? "none";
+        chosenP = top[0]?.p ?? 0;
+        check(reasons, "exclude_target", excludeTargetId, "-", true, `previous target excluded → ${chosen}`);
+      }
+      top = top.slice(0, T.candidateCount);
       const targetOk =
-        chosen && chosen !== "none" && target.confidence >= T.targetConfidence && (target.probabilities?.[chosen] ?? 0) >= T.targetTopProb;
+        chosen && chosen !== "none" && target.confidence >= T.targetConfidence && chosenP >= T.targetTopProb;
       const text = intentName === "click_element" ? null : pickSpan(answers.text_span, T.spanConfidence, candidates.text?.[0]);
 
       if (intentName !== "click_element" && !text) {
