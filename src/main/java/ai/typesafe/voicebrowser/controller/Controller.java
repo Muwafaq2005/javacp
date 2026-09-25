@@ -244,7 +244,9 @@ public class Controller {
             }
 
         } catch (Exception e) {
-            log("error", "Jev error: " + e.getMessage());
+            e.printStackTrace();
+            String location = e.getStackTrace().length > 0 ? e.getStackTrace()[0].toString() : "";
+            log("error", "Jev error: " + e.toString() + " at " + location);
         }
     }
 
