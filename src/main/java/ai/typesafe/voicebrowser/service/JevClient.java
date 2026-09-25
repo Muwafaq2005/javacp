@@ -48,7 +48,21 @@ public class JevClient {
             sb.append(" (placeholder: ").append(el.getPlaceholder()).append(")");
         }
         if (el.getHref() != null && !el.getHref().isEmpty()) {
-            String host = el.getHref().split("/")[0];
+            String href = el.getHref().trim();
+            String host = "";
+            if (href.startsWith("http://") || href.startsWith("https://")) {
+                try {
+                    URI uri = new URI(href);
+                    if (uri.getHost() != null) {
+                        host = uri.getHost().replaceFirst("^www\\.", "");
+                    }
+                } catch (Exception ignored) {}
+            } else {
+                String[] parts = href.split("/");
+                if (parts.length > 0 && !parts[0].isEmpty()) {
+                    host = parts[0].replaceFirst("^www\\.", "");
+                }
+            }
             if (!host.isEmpty() && !host.equalsIgnoreCase(pageHost)) {
                 sb.append(" → ").append(host);
             }
