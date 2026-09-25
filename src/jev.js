@@ -13,7 +13,7 @@ let _client = null;
 export function getClient() {
   if (_client) return _client;
   const apiKey = process.env.TYPESAFE_API_KEY || process.env.JEV_API_KEY;
-  if (!apiKey) {
+  if (!apiKey || apiKey === "your_typesafe_api_key_here") {
     throw new Error("Missing API key: set TYPESAFE_API_KEY (or JEV_API_KEY). See run.sh / .env.example.");
   }
   _client = new TypeSafeClient({
@@ -27,7 +27,8 @@ export function getClient() {
 }
 
 export function hasApiKey() {
-  return Boolean(process.env.TYPESAFE_API_KEY || process.env.JEV_API_KEY);
+  const key = process.env.TYPESAFE_API_KEY || process.env.JEV_API_KEY;
+  return Boolean(key && key !== "your_typesafe_api_key_here");
 }
 
 export function costUsd(usage) {
@@ -150,20 +151,51 @@ export function buildRequest({ transcript, snapshot, pendingConfirmation = null,
  * or rejects with APIUserAbortError when `signal` aborts (newer transcript arrived).
  */
 export async function decide(input, { signal } = {}) {
-  const client = getClient();
   const { state, questions, candidates } = buildRequest(input);
   const t0 = performance.now();
-  const { data, requestId } = await client
-    .systemOne({ state, questions, model: MODEL }, { signal })
-    .withResponse();
+
+  if (hasApiKey()) {
+    const client = getClient();
+    const { data, requestId } = await client
+      .systemOne({ state, questions, model: MODEL }, { signal })
+      .withResponse();
+    const latencyMs = Math.round(performance.now() - t0);
+    return {
+      answers: data.answers,
+      latencyMs,
+      usage: data.usage,
+      costUsd: costUsd(data.usage),
+      model: data.model,
+      requestId,
+      candidates,
+      state,
+      questionCount: Object.keys(questions).length,
+    };
+  }
+
+  // Fallback to local Laya server if running
+  const layaUrl = process.env.LAYA_SERVER_URL || "http://127.0.0.1:8000/v1/evaluate";
+  const response = await fetch(layaUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ state, questions }),
+    signal,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Laya Server error ${response.status}`);
+  }
+
+  const data = await response.json();
   const latencyMs = Math.round(performance.now() - t0);
+
   return {
     answers: data.answers,
     latencyMs,
-    usage: data.usage,
-    costUsd: costUsd(data.usage),
-    model: data.model,
-    requestId,
+    usage: data.usage || { input_tokens: 0, output_tokens: 0 },
+    costUsd: 0,
+    model: data.model || "laya-local",
+    requestId: `laya-${Date.now()}`,
     candidates,
     state,
     questionCount: Object.keys(questions).length,

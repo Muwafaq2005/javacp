@@ -38,8 +38,7 @@ export function parseArgs(argv) {
 
 export async function startServer(opts = {}) {
   if (!hasApiKey()) {
-    console.error("Missing TYPESAFE_API_KEY (or JEV_API_KEY). Use ./run.sh or export it first.");
-    process.exit(1);
+    console.warn("No valid TYPESAFE_API_KEY / JEV_API_KEY set. Falling back to local Laya server at http://127.0.0.1:8000/v1/evaluate");
   }
   const browser = new BrowserManager();
   await browser.launch({ headless: opts.headless, cdp: opts.cdp, startUrl: opts.startUrl });
