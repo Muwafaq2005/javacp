@@ -8,3 +8,4 @@ test-results/
 .browser-profile*/
 target/
 apache-maven-3.9.9/
+*.pdf
