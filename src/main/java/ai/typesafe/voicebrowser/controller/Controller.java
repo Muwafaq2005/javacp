@@ -144,7 +144,7 @@ public class Controller {
         // Numbered candidate pick shortcut
         if (candidates != null && now - candidates.at() < Constants.CANDIDATE_TTL_MS) {
             Integer n = SpansExtractor.parseCandidatePick(clean, candidates.list().size());
-            if (n != null) {
+            if (n != null && n >= 1 && n <= candidates.list().size()) {
                 PolicyResult.CandidateChoice c = candidates.list().get(n - 1);
                 consume(utterance, clean);
                 log("info", "picked candidate " + n + " (" + c.label() + ") by number — no model call");

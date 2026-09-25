@@ -76,8 +76,9 @@ public class JevClient {
 
         if (context.containsKey("recentActions")) {
             @SuppressWarnings("unchecked")
-            List<PolicyEngine.ActionHistoryEntry> actions = (List<PolicyEngine.ActionHistoryEntry>) context.get("recentActions");
-            if (actions != null && !actions.isEmpty()) {
+            List<PolicyEngine.ActionHistoryEntry> rawActions = (List<PolicyEngine.ActionHistoryEntry>) context.get("recentActions");
+            if (rawActions != null && !rawActions.isEmpty()) {
+                List<PolicyEngine.ActionHistoryEntry> actions = new ArrayList<>(rawActions);
                 List<Map<String, Object>> recentList = new ArrayList<>();
                 long now = System.currentTimeMillis();
                 for (int i = Math.max(0, actions.size() - Constants.MAX_CONTEXT_ACTIONS); i < actions.size(); i++) {

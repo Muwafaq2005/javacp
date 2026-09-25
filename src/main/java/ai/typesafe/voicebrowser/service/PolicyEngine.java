@@ -62,7 +62,8 @@ public class PolicyEngine {
         String intentName = intentObj != null && intentObj.containsKey("choice") ? (String) intentObj.get("choice") : "none";
         double intentConf = intentObj != null && intentObj.containsKey("confidence") ? ((Number) intentObj.get("confidence")).doubleValue() : 0.0;
 
-        ActionHistoryEntry lastAction = (recentActions != null && !recentActions.isEmpty()) ? recentActions.get(recentActions.size() - 1) : null;
+        List<ActionHistoryEntry> safeActions = (recentActions != null && !recentActions.isEmpty()) ? new ArrayList<>(recentActions) : Collections.emptyList();
+        ActionHistoryEntry lastAction = !safeActions.isEmpty() ? safeActions.get(safeActions.size() - 1) : null;
         double correction = answers.containsKey("is_correction") && answers.get("is_correction").containsKey("noul") ?
                 ((Number) answers.get("is_correction").get("noul")).doubleValue() : 0.0;
 
