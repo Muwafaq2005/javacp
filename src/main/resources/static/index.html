@@ -167,7 +167,7 @@
 
   function connect() {
     const wsProtocol = location.protocol === "https:" ? "wss:" : "ws:";
-    ws = new WebSocket(`${wsProtocol}//${location.host}/`);
+    ws = new WebSocket(`${wsProtocol}//${location.host}/ws`);
     ws.onopen = () => { $("ws").textContent = "connected"; };
     ws.onclose = () => { $("ws").textContent = "disconnected — retrying"; setTimeout(connect, 1000); };
     ws.onmessage = (ev) => {
