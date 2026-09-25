@@ -1,6 +1,5 @@
 package ai.typesafe.voicebrowser.controller;
 
-import ai.typesafe.voicebrowser.browser.Controller;
 import ai.typesafe.voicebrowser.model.Constants;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;

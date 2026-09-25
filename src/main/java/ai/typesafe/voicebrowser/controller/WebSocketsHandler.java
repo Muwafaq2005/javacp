@@ -1,6 +1,5 @@
 package ai.typesafe.voicebrowser.controller;
 
-import ai.typesafe.voicebrowser.browser.Controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.web.socket.*;
 import org.springframework.web.socket.handler.TextWebSocketHandler;

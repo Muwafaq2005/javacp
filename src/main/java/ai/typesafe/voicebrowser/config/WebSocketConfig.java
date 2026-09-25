@@ -1,6 +1,6 @@
 package ai.typesafe.voicebrowser.config;
 
-import ai.typesafe.voicebrowser.browser.Controller;
+import ai.typesafe.voicebrowser.controller.Controller;
 import ai.typesafe.voicebrowser.controller.WebSocketsHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

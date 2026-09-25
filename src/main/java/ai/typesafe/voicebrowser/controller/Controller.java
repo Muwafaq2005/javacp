@@ -1,5 +1,7 @@
-package ai.typesafe.voicebrowser.browser;
+package ai.typesafe.voicebrowser.controller;
 
+import ai.typesafe.voicebrowser.browser.BrowserManager;
+import ai.typesafe.voicebrowser.browser.Executor;
 import ai.typesafe.voicebrowser.model.*;
 import ai.typesafe.voicebrowser.service.JevClient;
 import ai.typesafe.voicebrowser.service.PolicyEngine;
