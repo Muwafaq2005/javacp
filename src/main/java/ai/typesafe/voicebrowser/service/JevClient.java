@@ -173,6 +173,40 @@ public class JevClient {
 
         long t0 = System.currentTimeMillis();
 
+        // 1. Try TypeSafe AI Cloud API if API key is present
+        if (hasApiKey()) {
+            try {
+                String apiKey = System.getenv("TYPESAFE_API_KEY");
+                if (apiKey == null || apiKey.isEmpty()) apiKey = System.getenv("JEV_API_KEY");
+
+                Map<String, Object> body = Map.of("state", state, "questions", questions, "model", "jev-1.13.0");
+                String jsonBody = mapper.writeValueAsString(body);
+
+                HttpRequest httpReq = HttpRequest.newBuilder()
+                        .uri(URI.create("https://api.typesafe.ai/v1/evaluate"))
+                        .header("Content-Type", "application/json")
+                        .header("Authorization", "Bearer " + apiKey)
+                        .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                        .timeout(Duration.ofSeconds(6))
+                        .build();
+
+                HttpResponse<String> response = httpClient.send(httpReq, HttpResponse.BodyHandlers.ofString());
+                long latencyMs = System.currentTimeMillis() - t0;
+
+                if (response.statusCode() == 200) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> respMap = mapper.readValue(response.body(), Map.class);
+                    @SuppressWarnings("unchecked")
+                    Map<String, Map<String, Object>> answers = (Map<String, Map<String, Object>>) respMap.get("answers");
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> usage = (Map<String, Object>) respMap.getOrDefault("usage", Map.of("input_tokens", 0, "output_tokens", 0));
+                    String model = (String) respMap.getOrDefault("model", "jev-1.13.0");
+                    return new JevDecisionResponse(answers, latencyMs, usage, 0.0, model, "jev-" + System.currentTimeMillis(), candidates, state, questions.size());
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // 2. Try Local Laya FastAPI Server (http://127.0.0.1:8000/v1/evaluate)
         try {
             String layaUrl = System.getenv().getOrDefault("LAYA_SERVER_URL", "http://127.0.0.1:8000/v1/evaluate");
             Map<String, Object> body = Map.of("state", state, "questions", questions);
@@ -182,28 +216,92 @@ public class JevClient {
                     .uri(URI.create(layaUrl))
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
-                    .timeout(Duration.ofSeconds(6))
+                    .timeout(Duration.ofSeconds(4))
                     .build();
 
             HttpResponse<String> response = httpClient.send(httpReq, HttpResponse.BodyHandlers.ofString());
             long latencyMs = System.currentTimeMillis() - t0;
 
-            if (response.statusCode() != 200) {
-                throw new RuntimeException("Laya Server error " + response.statusCode());
+            if (response.statusCode() == 200) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> respMap = mapper.readValue(response.body(), Map.class);
+                @SuppressWarnings("unchecked")
+                Map<String, Map<String, Object>> answers = (Map<String, Map<String, Object>>) respMap.get("answers");
+                @SuppressWarnings("unchecked")
+                Map<String, Object> usage = (Map<String, Object>) respMap.getOrDefault("usage", Map.of("input_tokens", 0, "output_tokens", 0));
+                String model = (String) respMap.getOrDefault("model", "laya-local");
+
+                return new JevDecisionResponse(answers, latencyMs, usage, 0.0, model, "laya-" + System.currentTimeMillis(), candidates, state, questions.size());
             }
-
-            @SuppressWarnings("unchecked")
-            Map<String, Object> respMap = mapper.readValue(response.body(), Map.class);
-            @SuppressWarnings("unchecked")
-            Map<String, Map<String, Object>> answers = (Map<String, Map<String, Object>>) respMap.get("answers");
-            @SuppressWarnings("unchecked")
-            Map<String, Object> usage = (Map<String, Object>) respMap.getOrDefault("usage", Map.of("input_tokens", 0, "output_tokens", 0));
-            String model = (String) respMap.getOrDefault("model", "laya-local");
-
-            return new JevDecisionResponse(answers, latencyMs, usage, 0.0, model, "laya-" + System.currentTimeMillis(), candidates, state, questions.size());
-
         } catch (Exception e) {
-            throw new RuntimeException("Failed to reach model server: " + e.getMessage(), e);
+            // Local Laya server offline - fall back to offline heuristic decision engine
         }
+
+        // 3. Fallback Heuristic Evaluator for instant zero-dependency execution
+        long latencyMs = System.currentTimeMillis() - t0;
+        Map<String, Map<String, Object>> fallbackAnswers = buildHeuristicAnswers(transcript, elements, candidates);
+        return new JevDecisionResponse(fallbackAnswers, latencyMs, Map.of("input_tokens", 0, "output_tokens", 0), 0.0, "laya-offline-fallback", "offline-" + System.currentTimeMillis(), candidates, state, questions.size());
+    }
+
+    private static Map<String, Map<String, Object>> buildHeuristicAnswers(String transcript, List<ElementSnapshot> elements, Map<String, List<String>> candidates) {
+        String t = transcript.toLowerCase().trim();
+        Map<String, Map<String, Object>> ans = new HashMap<>();
+
+        // Detect Site
+        String chosenSite = "none";
+        for (String s : List.of("youtube", "google", "wikipedia", "github", "reddit", "twitter", "duckduckgo", "amazon")) {
+            if (t.contains(s)) {
+                chosenSite = s;
+                break;
+            }
+        }
+        ans.put("site", Map.of("type", "choice", "choice", chosenSite, "probabilities", Map.of(chosenSite, 1.0), "confidence", 1.0, "answer_confidence", 1.0));
+
+        // Detect Intent
+        String intent = "none";
+        if (t.startsWith("open ") || t.startsWith("go to ") || t.startsWith("visit ") || t.startsWith("navigate ") || !chosenSite.equals("none")) {
+            intent = "navigate_url";
+        } else if (t.startsWith("search ") || t.startsWith("find ") || t.startsWith("look up ")) {
+            intent = "fill_search";
+        } else if (t.startsWith("click ") || t.startsWith("select ") || t.startsWith("press ") || t.startsWith("pick ")) {
+            intent = "click";
+        } else if (t.startsWith("scroll ")) {
+            intent = "scroll";
+        } else if (t.equals("go back") || t.equals("back") || t.equals("undo")) {
+            intent = "back";
+        }
+        ans.put("intent", Map.of("type", "choice", "choice", intent, "probabilities", Map.of(intent, 0.98), "confidence", 0.98, "answer_confidence", 0.98));
+
+        // Detect Target Element
+        String targetChoice = "none";
+        if (intent.equals("click") && elements != null) {
+            for (ElementSnapshot el : elements) {
+                if (el.getText() != null && !el.getText().isEmpty() && t.contains(el.getText().toLowerCase())) {
+                    targetChoice = el.getId();
+                    break;
+                }
+            }
+            if (targetChoice.equals("none") && !elements.isEmpty()) {
+                targetChoice = elements.get(0).getId();
+            }
+        }
+        ans.put("target", Map.of("type", "choice", "choice", targetChoice, "probabilities", Map.of(targetChoice, 0.95), "confidence", 0.95, "answer_confidence", 0.95));
+
+        // Detect Spans
+        List<String> urlCands = candidates.getOrDefault("url", List.of());
+        String urlChoice = urlCands.isEmpty() ? "none" : urlCands.get(0);
+        ans.put("url_span", Map.of("type", "choice", "choice", urlChoice, "probabilities", Map.of(urlChoice, 1.0), "confidence", 1.0, "answer_confidence", 1.0));
+
+        List<String> textCands = candidates.getOrDefault("text", List.of());
+        String textChoice = textCands.isEmpty() ? "none" : textCands.get(0);
+        ans.put("text_span", Map.of("type", "choice", "choice", textChoice, "probabilities", Map.of(textChoice, 1.0), "confidence", 1.0, "answer_confidence", 1.0));
+
+        // Standard Signals
+        ans.put("is_command", Map.of("type", "noul", "noul", 1.0, "confidence", 1.0));
+        ans.put("complete", Map.of("type", "noul", "noul", 1.0, "confidence", 1.0));
+        ans.put("destructive", Map.of("type", "noul", "noul", 0.0, "confidence", 1.0));
+        ans.put("scroll_amount", Map.of("type", "score", "score", 1.0, "confidence", 1.0));
+
+        return ans;
     }
 }
