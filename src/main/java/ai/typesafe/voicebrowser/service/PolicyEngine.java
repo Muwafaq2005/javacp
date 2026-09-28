@@ -350,6 +350,50 @@ public class PolicyEngine {
                 return res;
             }
 
+            case "media_control": {
+                Action act = new Action("media_control", "media control");
+                if (answers.containsKey("transcript") || answers.containsKey("site")) {
+                    String text = answers.getOrDefault("transcript", Map.of()).getOrDefault("text", "").toString().toLowerCase();
+                    if (text.isEmpty() && answers.containsKey("is_command")) text = "";
+                }
+                act.setMediaCommand("toggle");
+                PolicyResult res = new PolicyResult("act", describe(act));
+                res.setAction(act);
+                return res;
+            }
+
+            case "press_key": {
+                Action act = new Action("press_key", "press key");
+                act.setKeyName("Enter");
+                PolicyResult res = new PolicyResult("act", describe(act));
+                res.setAction(act);
+                return res;
+            }
+
+            case "scroll_top": {
+                Action act = new Action("scroll_top", "scroll to top");
+                PolicyResult res = new PolicyResult("act", describe(act));
+                res.setAction(act);
+                return res;
+            }
+
+            case "scroll_bottom": {
+                Action act = new Action("scroll_bottom", "scroll to bottom");
+                PolicyResult res = new PolicyResult("act", describe(act));
+                res.setAction(act);
+                return res;
+            }
+
+            case "clear_field": {
+                Map<String, Object> targetMap = answers.get("target");
+                String chosen = targetMap != null && targetMap.containsKey("choice") ? (String) targetMap.get("choice") : "none";
+                Action act = new Action("clear_field", "clear field " + (chosen.equals("none") ? "" : chosen));
+                if (!chosen.equals("none")) act.setTargetId(chosen);
+                PolicyResult res = new PolicyResult("act", describe(act));
+                res.setAction(act);
+                return res;
+            }
+
             case "scroll_down":
             case "scroll_up": {
                 Map<String, Object> scrollObj = answers.get("scroll_amount");

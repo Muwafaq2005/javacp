@@ -198,6 +198,50 @@ public class Executor {
                 return new ExecutionResult(true, "tabs=" + browser.getPages().size());
             }
 
+            case "media_control": {
+                browser.overlay("toast", "⏯ media toggle");
+                Object res = page.evaluate("() => {" +
+                        "  const v = document.querySelector('video, audio');" +
+                        "  if (!v) return 'no media found';" +
+                        "  if (v.paused) { v.play(); return 'playing'; } else { v.pause(); return 'paused'; }" +
+                        "}");
+                return new ExecutionResult(true, String.valueOf(res));
+            }
+
+            case "press_key": {
+                String key = action.getKeyName() != null ? action.getKeyName() : "Enter";
+                browser.overlay("toast", "⌨ key " + key);
+                page.keyboard().press(key);
+                settle(page, 500);
+                return new ExecutionResult(true, "pressed " + key);
+            }
+
+            case "scroll_top": {
+                browser.overlay("toast", "⬆ scroll to top");
+                page.evaluate("() => window.scrollTo({ top: 0, behavior: 'smooth' })");
+                try { Thread.sleep(300); } catch (Exception ignored) {}
+                return new ExecutionResult(true, "scrollY=0");
+            }
+
+            case "scroll_bottom": {
+                browser.overlay("toast", "⬇ scroll to bottom");
+                page.evaluate("() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })");
+                try { Thread.sleep(300); } catch (Exception ignored) {}
+                return new ExecutionResult(true, "scrollY=bottom");
+            }
+
+            case "clear_field": {
+                browser.overlay("toast", "⌫ clear field");
+                if (action.getTargetId() != null) {
+                    Locator loc = locatorFor(page, action.getTargetId());
+                    try { loc.fill(""); } catch (Exception ignored) {}
+                } else {
+                    page.keyboard().press("Control+A");
+                    page.keyboard().press("Backspace");
+                }
+                return new ExecutionResult(true, "field cleared");
+            }
+
             case "close_tab": {
                 page.close();
                 browser.setActive(browser.getPage());

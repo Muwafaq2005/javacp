@@ -51,4 +51,17 @@ public class Action {
 
     public Boolean getConfirmed() { return confirmed; }
     public void setConfirmed(Boolean confirmed) { this.confirmed = confirmed; }
+
+    private String keyName;
+    private String mediaCommand;
+    private Integer tabIndex;
+
+    public String getKeyName() { return keyName; }
+    public void setKeyName(String keyName) { this.keyName = keyName; }
+
+    public String getMediaCommand() { return mediaCommand; }
+    public void setMediaCommand(String mediaCommand) { this.mediaCommand = mediaCommand; }
+
+    public Integer getTabIndex() { return tabIndex; }
+    public void setTabIndex(Integer tabIndex) { this.tabIndex = tabIndex; }
 }

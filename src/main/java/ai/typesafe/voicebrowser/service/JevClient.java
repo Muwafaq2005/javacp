@@ -274,7 +274,27 @@ public class JevClient {
 
         // Detect Intent
         String intent = "none";
-        if (t.startsWith("open ") || t.startsWith("go to ") || t.startsWith("visit ") || t.startsWith("navigate ") || !chosenSite.equals("none")) {
+        if (t.equals("play") || t.equals("pause") || t.equals("stop") || t.equals("resume") || t.equals("mute") || t.equals("unmute") || t.contains("fullscreen")) {
+            intent = "media_control";
+        } else if (t.startsWith("press ") && (t.contains("enter") || t.contains("escape") || t.contains("space") || t.contains("tab"))) {
+            intent = "press_key";
+        } else if (t.equals("new tab") || t.equals("open new tab") || (t.startsWith("open ") && t.endsWith("in new tab"))) {
+            intent = "open_new_tab";
+        } else if (t.equals("close tab") || t.equals("close current tab")) {
+            intent = "close_tab";
+        } else if (t.contains("next tab") || t.contains("previous tab") || t.startsWith("switch tab") || t.startsWith("switch to tab")) {
+            intent = "switch_tab";
+        } else if (t.equals("scroll to top") || t.equals("scroll top")) {
+            intent = "scroll_top";
+        } else if (t.equals("scroll to bottom") || t.equals("scroll bottom")) {
+            intent = "scroll_bottom";
+        } else if (t.startsWith("clear") || t.startsWith("empty ")) {
+            intent = "clear_field";
+        } else if (t.equals("reload") || t.equals("refresh")) {
+            intent = "reload";
+        } else if (t.equals("go forward") || t.equals("forward")) {
+            intent = "go_forward";
+        } else if (t.startsWith("open ") || t.startsWith("go to ") || t.startsWith("visit ") || t.startsWith("navigate ") || !chosenSite.equals("none")) {
             intent = "navigate_url";
         } else if (t.startsWith("search ") || t.startsWith("find ") || t.startsWith("look up ")) {
             intent = "fill_search";
@@ -289,7 +309,7 @@ public class JevClient {
 
         // Detect Target Element
         String targetChoice = "none";
-        if (intent.equals("click") && elements != null) {
+        if ((intent.equals("click") || intent.equals("clear_field")) && elements != null) {
             for (ElementSnapshot el : elements) {
                 if (el.getText() != null && !el.getText().isEmpty() && t.contains(el.getText().toLowerCase())) {
                     targetChoice = el.getId();
