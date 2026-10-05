@@ -205,10 +205,11 @@ public class Executor {
                 List<Page> before = new ArrayList<>(browser.getPages());
 
                 Object success = page.evaluate("(([targetIdx, cat]) => {" +
-                        "  let sel = 'a[href*=\"watch\"], ytd-video-renderer, ytd-grid-video-renderer, .article-link, a, button';" +
+                        "  let sel = 'ytd-video-renderer #video-title, ytd-grid-video-renderer #video-title, a#video-title, a[href*=\"/watch?v=\"], a[href]';" +
                         "  if (cat === 'link') sel = 'a[href]';" +
                         "  else if (cat === 'button') sel = 'button, [role=\"button\"]';" +
-                        "  const items = Array.from(document.querySelectorAll(sel)).filter(el => {" +
+                        "  const rawItems = Array.from(document.querySelectorAll(sel));" +
+                        "  const items = rawItems.filter(el => {" +
                         "    const r = el.getBoundingClientRect();" +
                         "    return r.width > 0 && r.height > 0 && window.getComputedStyle(el).visibility !== 'hidden';" +
                         "  });" +
@@ -216,7 +217,7 @@ public class Executor {
                         "  const target = items[targetIdx];" +
                         "  target.scrollIntoView({ behavior: 'smooth', block: 'center' });" +
                         "  target.click();" +
-                        "  return target.getAttribute('href') || target.innerText || 'clicked';" +
+                        "  return target.getAttribute('href') || target.getAttribute('title') || target.innerText || 'clicked';" +
                         "})", List.of(targetIdx, cat));
 
                 settle(page, 2500);
