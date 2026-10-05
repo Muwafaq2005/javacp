@@ -46,11 +46,12 @@ public class Constants {
     );
 
     public static final Set<String> PAYLOAD_INTENTS = Set.of(
-            "search_web", "type_into_field", "select_option", "clear_field", "press_key"
+            "search_web", "type_into_field", "select_option", "clear_field", "press_key",
+            "select_ordinal", "volume_control", "seek_media"
     );
 
     public static final Set<String> TARGET_INTENTS = Set.of(
-            "click_element", "type_into_field", "select_option", "clear_field"
+            "click_element", "type_into_field", "select_option", "clear_field", "select_ordinal"
     );
 
     public static final Map<String, String> SITE_HOME = Map.ofEntries(

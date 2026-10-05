@@ -274,8 +274,15 @@ public class JevClient {
 
         // Detect Intent
         String intent = "none";
-        if (t.equals("play") || t.equals("pause") || t.equals("stop") || t.equals("resume") || t.equals("mute") || t.equals("unmute") || t.contains("fullscreen")) {
+        if (t.matches(".*(volume|sound)\\s*(up|down|increase|decrease|more|less).*") || t.matches(".*set\\s*volume.*")) {
+            intent = "volume_control";
+        } else if (t.matches(".*(skip|rewind|forward|backward|seek).*\\s*\\d+.*") || t.matches(".*(fast forward|rewind).*")) {
+            intent = "seek_media";
+        } else if (t.equals("play") || t.equals("pause") || t.equals("stop") || t.equals("resume") || t.equals("mute") || t.equals("unmute") || t.contains("fullscreen")) {
             intent = "media_control";
+        } else if (t.matches(".*(first|second|third|fourth|fifth|1st|2nd|3rd|4th|5th|item|option|video|link|result).*") &&
+                   (t.contains("click") || t.contains("open") || t.contains("select") || t.contains("choose") || t.contains("pick") || t.matches("^(the\\s+)?(first|second|third|fourth|fifth|1st|2nd|3rd|4th|5th).*"))) {
+            intent = "select_ordinal";
         } else if (t.startsWith("press ") && (t.contains("enter") || t.contains("escape") || t.contains("space") || t.contains("tab"))) {
             intent = "press_key";
         } else if (t.equals("new tab") || t.equals("open new tab") || (t.startsWith("open ") && t.endsWith("in new tab"))) {
@@ -297,13 +304,15 @@ public class JevClient {
         } else if (t.startsWith("open ") || t.startsWith("go to ") || t.startsWith("visit ") || t.startsWith("navigate ") || !chosenSite.equals("none")) {
             intent = "navigate_url";
         } else if (t.startsWith("search ") || t.startsWith("find ") || t.startsWith("look up ")) {
-            intent = "fill_search";
+            intent = "search_web";
         } else if (t.startsWith("click ") || t.startsWith("select ") || t.startsWith("press ") || t.startsWith("pick ")) {
             intent = "click";
-        } else if (t.startsWith("scroll ")) {
-            intent = "scroll";
+        } else if (t.startsWith("scroll up")) {
+            intent = "scroll_up";
+        } else if (t.startsWith("scroll")) {
+            intent = "scroll_down";
         } else if (t.equals("go back") || t.equals("back") || t.equals("undo")) {
-            intent = "back";
+            intent = "go_back";
         }
         ans.put("intent", Map.of("type", "choice", "choice", intent, "probabilities", Map.of(intent, 0.98), "confidence", 0.98, "answer_confidence", 0.98));
 

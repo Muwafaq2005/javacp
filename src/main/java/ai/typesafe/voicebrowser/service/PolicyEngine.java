@@ -364,7 +364,14 @@ public class PolicyEngine {
 
             case "press_key": {
                 Action act = new Action("press_key", "press key");
-                act.setKeyName("Enter");
+                String key = "Enter";
+                if (answers.containsKey("text_span") && answers.get("text_span").containsKey("choice")) {
+                    String span = String.valueOf(answers.get("text_span").get("choice")).toLowerCase();
+                    if (span.contains("escape")) key = "Escape";
+                    else if (span.contains("space")) key = "Space";
+                    else if (span.contains("tab")) key = "Tab";
+                }
+                act.setKeyName(key);
                 PolicyResult res = new PolicyResult("act", describe(act));
                 res.setAction(act);
                 return res;
@@ -407,9 +414,78 @@ public class PolicyEngine {
                 return res;
             }
 
+            case "select_ordinal": {
+                int ordinal = 1;
+                String t = answers.containsKey("transcript") ? answers.get("transcript").getOrDefault("text", "").toString().toLowerCase() : "";
+                if (t.isEmpty() && !textCandidates.isEmpty()) t = textCandidates.get(0).toLowerCase();
+
+                if (t.contains("second") || t.contains("2nd") || t.contains("two")) ordinal = 2;
+                else if (t.contains("third") || t.contains("3rd") || t.contains("three")) ordinal = 3;
+                else if (t.contains("fourth") || t.contains("4th") || t.contains("four")) ordinal = 4;
+                else if (t.contains("fifth") || t.contains("5th") || t.contains("five")) ordinal = 5;
+
+                String category = "video";
+                if (t.contains("link")) category = "link";
+                else if (t.contains("button")) category = "button";
+                else if (t.contains("result")) category = "result";
+                else if (t.contains("option") || t.contains("item")) category = "item";
+
+                Action act = new Action("select_ordinal", "select " + ordinal + " " + category);
+                act.setOrdinalIndex(ordinal);
+                act.setTargetCategory(category);
+                PolicyResult res = new PolicyResult("act", describe(act));
+                res.setAction(act);
+                return res;
+            }
+
+            case "volume_control": {
+                String t = answers.containsKey("transcript") ? answers.get("transcript").getOrDefault("text", "").toString().toLowerCase() : "";
+                if (t.isEmpty() && !textCandidates.isEmpty()) t = textCandidates.get(0).toLowerCase();
+
+                String mediaCmd = "volume_up";
+                double delta = 0.15;
+                if (t.contains("down") || t.contains("decrease") || t.contains("lower") || t.contains("less")) {
+                    mediaCmd = "volume_down";
+                    delta = -0.15;
+                }
+
+                Action act = new Action("media_control", mediaCmd.replace("_", " "));
+                act.setMediaCommand(mediaCmd);
+                act.setVolumeLevel(delta);
+                PolicyResult res = new PolicyResult("act", describe(act));
+                res.setAction(act);
+                return res;
+            }
+
+            case "seek_media": {
+                String t = answers.containsKey("transcript") ? answers.get("transcript").getOrDefault("text", "").toString().toLowerCase() : "";
+                if (t.isEmpty() && !textCandidates.isEmpty()) t = textCandidates.get(0).toLowerCase();
+
+                int seconds = 10;
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\d+").matcher(t);
+                if (m.find()) {
+                    seconds = Integer.parseInt(m.group());
+                }
+                if (t.contains("rewind") || t.contains("back") || t.contains("backward")) {
+                    seconds = -seconds;
+                }
+
+                Action act = new Action("media_control", "seek " + seconds + "s");
+                act.setMediaCommand("seek");
+                act.setSeekSeconds(seconds);
+                PolicyResult res = new PolicyResult("act", describe(act));
+                res.setAction(act);
+                return res;
+            }
+
             case "switch_tab": {
                 Map<String, Object> tabObj = answers.get("tab_direction");
                 String dir = tabObj != null && tabObj.containsKey("choice") && !"none".equals(tabObj.get("choice")) ? (String) tabObj.get("choice") : "next";
+                if (answers.containsKey("text_span") && answers.get("text_span").containsKey("choice")) {
+                    String span = String.valueOf(answers.get("text_span").get("choice")).toLowerCase();
+                    if (span.contains("previous")) dir = "previous";
+                    else if (span.contains("first")) dir = "first";
+                }
                 Action act = new Action("switch_tab", "switch tab (" + dir + ")");
                 act.setDirection(dir);
                 PolicyResult res = new PolicyResult("act", describe(act));

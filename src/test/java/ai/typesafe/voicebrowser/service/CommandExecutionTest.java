@@ -64,4 +64,55 @@ public class CommandExecutionTest {
         JevDecisionResponse closeTabResp = JevClient.decide("close tab", Collections.emptyList(), "https://example.com", "Example", "example_com", Collections.emptyMap());
         assertEquals("close_tab", closeTabResp.answers().get("intent").get("choice"));
     }
+
+    @Test
+    @DisplayName("Should evaluate ordinal selection voice commands")
+    void testSelectOrdinalHeuristics() {
+        JevDecisionResponse resp = JevClient.decide("click the 3rd video", Collections.emptyList(), "https://youtube.com", "YouTube", "youtube", Map.of("text", List.of("click the 3rd video")));
+        assertEquals("select_ordinal", resp.answers().get("intent").get("choice"));
+
+        PolicyResult pol = PolicyEngine.evaluatePolicy(
+                resp.answers(),
+                Map.of("text", List.of("click the 3rd video")),
+                Collections.emptyList(),
+                "https://youtube.com",
+                "YouTube",
+                "youtube",
+                null,
+                100,
+                true,
+                null,
+                Collections.emptyList()
+        );
+
+        assertEquals("act", pol.getDecision());
+        assertEquals("select_ordinal", pol.getAction().getType());
+        assertEquals(3, pol.getAction().getOrdinalIndex());
+    }
+
+    @Test
+    @DisplayName("Should evaluate volume and seek media control voice commands")
+    void testVolumeAndSeekHeuristics() {
+        JevDecisionResponse volResp = JevClient.decide("volume up", Collections.emptyList(), "https://youtube.com", "YouTube", "youtube", Map.of("text", List.of("volume up")));
+        assertEquals("volume_control", volResp.answers().get("intent").get("choice"));
+
+        PolicyResult volPol = PolicyEngine.evaluatePolicy(
+                volResp.answers(),
+                Map.of("text", List.of("volume up")),
+                Collections.emptyList(),
+                "https://youtube.com",
+                "YouTube",
+                "youtube",
+                null,
+                100,
+                true,
+                null,
+                Collections.emptyList()
+        );
+        assertEquals("act", volPol.getDecision());
+        assertEquals("volume_up", volPol.getAction().getMediaCommand());
+
+        JevDecisionResponse seekResp = JevClient.decide("skip 10 seconds", Collections.emptyList(), "https://youtube.com", "YouTube", "youtube", Map.of("text", List.of("skip 10 seconds")));
+        assertEquals("seek_media", seekResp.answers().get("intent").get("choice"));
+    }
 }

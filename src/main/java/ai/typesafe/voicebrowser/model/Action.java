@@ -55,6 +55,10 @@ public class Action {
     private String keyName;
     private String mediaCommand;
     private Integer tabIndex;
+    private Integer ordinalIndex;
+    private String targetCategory;
+    private Double volumeLevel;
+    private Integer seekSeconds;
 
     public String getKeyName() { return keyName; }
     public void setKeyName(String keyName) { this.keyName = keyName; }
@@ -64,4 +68,16 @@ public class Action {
 
     public Integer getTabIndex() { return tabIndex; }
     public void setTabIndex(Integer tabIndex) { this.tabIndex = tabIndex; }
+
+    public Integer getOrdinalIndex() { return ordinalIndex; }
+    public void setOrdinalIndex(Integer ordinalIndex) { this.ordinalIndex = ordinalIndex; }
+
+    public String getTargetCategory() { return targetCategory; }
+    public void setTargetCategory(String targetCategory) { this.targetCategory = targetCategory; }
+
+    public Double getVolumeLevel() { return volumeLevel; }
+    public void setVolumeLevel(Double volumeLevel) { this.volumeLevel = volumeLevel; }
+
+    public Integer getSeekSeconds() { return seekSeconds; }
+    public void setSeekSeconds(Integer seekSeconds) { this.seekSeconds = seekSeconds; }
 }

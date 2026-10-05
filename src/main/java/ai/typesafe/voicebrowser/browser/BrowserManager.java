@@ -112,9 +112,14 @@ public class BrowserManager {
     public synchronized Page ensurePage() {
         Page p = getPage();
         if (p == null) {
-            p = context.newPage();
-            trackPage(p);
+            p = newTab();
         }
+        return p;
+    }
+
+    public synchronized Page newTab() {
+        Page p = context.newPage();
+        trackPage(p);
         return p;
     }
 

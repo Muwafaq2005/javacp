@@ -192,14 +192,64 @@ public class Executor {
             }
 
             case "open_new_tab": {
-                Page p = browser.ensurePage();
+                Page p = browser.newTab();
                 browser.setActive(p);
                 browser.overlay("toast", "new tab");
                 return new ExecutionResult(true, "tabs=" + browser.getPages().size());
             }
 
+            case "select_ordinal": {
+                int targetIdx = action.getOrdinalIndex() != null ? action.getOrdinalIndex() - 1 : 0;
+                String cat = action.getTargetCategory() != null ? action.getTargetCategory() : "video";
+                browser.overlay("toast", "🎯 select " + (targetIdx + 1) + " " + cat);
+                List<Page> before = new ArrayList<>(browser.getPages());
+
+                Object success = page.evaluate("(([targetIdx, cat]) => {" +
+                        "  let sel = 'a[href*=\"watch\"], ytd-video-renderer, ytd-grid-video-renderer, .article-link, a, button';" +
+                        "  if (cat === 'link') sel = 'a[href]';" +
+                        "  else if (cat === 'button') sel = 'button, [role=\"button\"]';" +
+                        "  const items = Array.from(document.querySelectorAll(sel)).filter(el => {" +
+                        "    const r = el.getBoundingClientRect();" +
+                        "    return r.width > 0 && r.height > 0 && window.getComputedStyle(el).visibility !== 'hidden';" +
+                        "  });" +
+                        "  if (items.length <= targetIdx) return null;" +
+                        "  const target = items[targetIdx];" +
+                        "  target.scrollIntoView({ behavior: 'smooth', block: 'center' });" +
+                        "  target.click();" +
+                        "  return target.getAttribute('href') || target.innerText || 'clicked';" +
+                        "})", List.of(targetIdx, cat));
+
+                settle(page, 2500);
+                maybeNewTab(browser, before);
+                return new ExecutionResult(success != null, success != null ? String.valueOf(success) : "ordinal item not found");
+            }
+
             case "media_control": {
-                browser.overlay("toast", "⏯ media toggle");
+                String cmd = action.getMediaCommand() != null ? action.getMediaCommand() : "toggle";
+                browser.overlay("toast", "⏯ media " + cmd);
+
+                if ("volume_up".equals(cmd) || "volume_down".equals(cmd)) {
+                    double delta = action.getVolumeLevel() != null ? action.getVolumeLevel() : ("volume_up".equals(cmd) ? 0.15 : -0.15);
+                    Object volRes = page.evaluate("([delta]) => {" +
+                            "  const v = document.querySelector('video, audio');" +
+                            "  if (!v) return 'no media element found';" +
+                            "  v.volume = Math.min(1.0, Math.max(0.0, v.volume + delta));" +
+                            "  return 'volume=' + Math.round(v.volume * 100) + '%';" +
+                            "}", List.of(delta));
+                    return new ExecutionResult(true, String.valueOf(volRes));
+                }
+
+                if ("seek".equals(cmd)) {
+                    int sec = action.getSeekSeconds() != null ? action.getSeekSeconds() : 10;
+                    Object seekRes = page.evaluate("([sec]) => {" +
+                            "  const v = document.querySelector('video, audio');" +
+                            "  if (!v) return 'no media element found';" +
+                            "  v.currentTime = Math.max(0, v.currentTime + sec);" +
+                            "  return 'currentTime=' + Math.round(v.currentTime) + 's';" +
+                            "}", List.of(sec));
+                    return new ExecutionResult(true, String.valueOf(seekRes));
+                }
+
                 Object res = page.evaluate("() => {" +
                         "  const v = document.querySelector('video, audio');" +
                         "  if (!v) return 'no media found';" +
