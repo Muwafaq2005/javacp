@@ -301,10 +301,10 @@ public class JevClient {
             intent = "reload";
         } else if (t.equals("go forward") || t.equals("forward")) {
             intent = "go_forward";
+        } else if (t.startsWith("search ") || t.startsWith("find ") || t.startsWith("look up ") || t.contains("search for ") || t.matches(".*search\\s+.*(in|on)\\s+.*")) {
+            intent = "search_web";
         } else if (t.startsWith("open ") || t.startsWith("go to ") || t.startsWith("visit ") || t.startsWith("navigate ") || !chosenSite.equals("none")) {
             intent = "navigate_url";
-        } else if (t.startsWith("search ") || t.startsWith("find ") || t.startsWith("look up ")) {
-            intent = "search_web";
         } else if (t.startsWith("click ") || t.startsWith("select ") || t.startsWith("press ") || t.startsWith("pick ")) {
             intent = "click";
         } else if (t.startsWith("scroll up")) {

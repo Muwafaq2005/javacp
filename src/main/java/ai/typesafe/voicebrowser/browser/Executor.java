@@ -205,7 +205,7 @@ public class Executor {
                 List<Page> before = new ArrayList<>(browser.getPages());
 
                 Object success = page.evaluate("(([targetIdx, cat]) => {" +
-                        "  let sel = 'ytd-video-renderer #video-title, ytd-grid-video-renderer #video-title, a#video-title, a[href*=\"/watch?v=\"], a[href]';" +
+                        "  let sel = 'a[href*=\"/watch?v=\"], ytd-video-renderer a#video-title, ytd-rich-item-renderer a#video-title';" +
                         "  if (cat === 'link') sel = 'a[href]';" +
                         "  else if (cat === 'button') sel = 'button, [role=\"button\"]';" +
                         "  const rawItems = Array.from(document.querySelectorAll(sel));" +
