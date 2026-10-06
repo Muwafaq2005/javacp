@@ -205,14 +205,25 @@ public class Executor {
                 List<Page> before = new ArrayList<>(browser.getPages());
 
                 Object success = page.evaluate("(([targetIdx, cat]) => {" +
-                        "  let sel = 'a[href*=\"/watch?v=\"], ytd-video-renderer a#video-title, ytd-rich-item-renderer a#video-title';" +
+                        "  let sel = 'ytd-video-renderer a#video-title, ytd-rich-item-renderer a#video-title, ytd-compact-video-renderer a#video-title, ytd-compact-video-renderer a.yt-simple-endpoint, a[href*=\"/watch?v=\"]';" +
                         "  if (cat === 'link') sel = 'a[href]';" +
                         "  else if (cat === 'button') sel = 'button, [role=\"button\"]';" +
                         "  const rawItems = Array.from(document.querySelectorAll(sel));" +
-                        "  const items = rawItems.filter(el => {" +
+                        "  const seenHrefs = new Set();" +
+                        "  const items = [];" +
+                        "  for (const el of rawItems) {" +
                         "    const r = el.getBoundingClientRect();" +
-                        "    return r.width > 0 && r.height > 0 && window.getComputedStyle(el).visibility !== 'hidden';" +
-                        "  });" +
+                        "    if (!(r.width > 0 && r.height > 0 && window.getComputedStyle(el).visibility !== 'hidden')) continue;" +
+                        "    const href = el.getAttribute('href') || '';" +
+                        "    if (cat === 'video' && href.includes('/watch?v=')) {" +
+                        "      const vId = href.split('/watch?v=')[1]?.split('&')[0];" +
+                        "      if (vId) {" +
+                        "        if (seenHrefs.has(vId)) continue;" +
+                        "        seenHrefs.add(vId);" +
+                        "      }" +
+                        "    }" +
+                        "    items.push(el);" +
+                        "  }" +
                         "  if (items.length <= targetIdx) return null;" +
                         "  const target = items[targetIdx];" +
                         "  target.scrollIntoView({ behavior: 'smooth', block: 'center' });" +
