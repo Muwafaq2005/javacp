@@ -200,40 +200,69 @@ public class Executor {
 
             case "select_ordinal": {
                 int targetIdx = action.getOrdinalIndex() != null ? action.getOrdinalIndex() - 1 : 0;
-                String cat = action.getTargetCategory() != null ? action.getTargetCategory() : "video";
+                String cat = action.getTargetCategory() != null ? action.getTargetCategory() : "link";
                 browser.overlay("toast", "🎯 select " + (targetIdx + 1) + " " + cat);
                 List<Page> before = new ArrayList<>(browser.getPages());
 
                 Object success = page.evaluate("(([targetIdx, cat]) => {" +
-                        "  let sel = 'ytd-video-renderer a#video-title, ytd-rich-item-renderer a#video-title, ytd-compact-video-renderer a#video-title, ytd-compact-video-renderer a.yt-simple-endpoint, a[href*=\"/watch?v=\"]';" +
-                        "  if (cat === 'link') sel = 'a[href]';" +
+                        "  let sel = 'a[href]';" +
+                        "  if (cat === 'video') sel = 'ytd-video-renderer a#video-title, ytd-rich-item-renderer a#video-title, ytd-compact-video-renderer a#video-title, a[href*=\"/watch?v=\"]';" +
                         "  else if (cat === 'button') sel = 'button, [role=\"button\"]';" +
+                        "  else if (cat === 'result' || cat === 'link') sel = 'div.g a h3, h3 a, [data-zci-link] a, .result__title a, .mw-search-result-heading a, a[href]';" +
                         "  const rawItems = Array.from(document.querySelectorAll(sel));" +
                         "  const seenHrefs = new Set();" +
                         "  const items = [];" +
-                        "  for (const el of rawItems) {" +
+                        "  for (let el of rawItems) {" +
+                        "    if (el.tagName === 'H3' && el.parentElement && el.parentElement.tagName === 'A') el = el.parentElement;" +
                         "    const r = el.getBoundingClientRect();" +
                         "    if (!(r.width > 0 && r.height > 0 && window.getComputedStyle(el).visibility !== 'hidden')) continue;" +
                         "    const href = el.getAttribute('href') || '';" +
-                        "    if (cat === 'video' && href.includes('/watch?v=')) {" +
-                        "      const vId = href.split('/watch?v=')[1]?.split('&')[0];" +
-                        "      if (vId) {" +
-                        "        if (seenHrefs.has(vId)) continue;" +
-                        "        seenHrefs.add(vId);" +
-                        "      }" +
-                        "    }" +
+                        "    if (href.startsWith('#') || href.startsWith('javascript:')) continue;" +
+                        "    if (seenHrefs.has(href)) continue;" +
+                        "    seenHrefs.add(href);" +
                         "    items.push(el);" +
                         "  }" +
                         "  if (items.length <= targetIdx) return null;" +
                         "  const target = items[targetIdx];" +
                         "  target.scrollIntoView({ behavior: 'smooth', block: 'center' });" +
                         "  target.click();" +
-                        "  return target.getAttribute('href') || target.getAttribute('title') || target.innerText || 'clicked';" +
+                        "  return target.getAttribute('href') || target.innerText || 'clicked';" +
                         "})", List.of(targetIdx, cat));
 
                 settle(page, 2500);
                 maybeNewTab(browser, before);
                 return new ExecutionResult(success != null, success != null ? String.valueOf(success) : "ordinal item not found");
+            }
+
+            case "zoom_page": {
+                double zoom = action.getZoomLevel() != null ? action.getZoomLevel() : 1.25;
+                browser.overlay("toast", "🔍 zoom " + Math.round(zoom * 100) + "%");
+                Object zoomRes = page.evaluate("([zoom]) => {" +
+                        "  document.body.style.zoom = zoom;" +
+                        "  return 'zoom=' + Math.round(zoom * 100) + '%';" +
+                        "}", List.of(zoom));
+                return new ExecutionResult(true, String.valueOf(zoomRes));
+            }
+
+            case "read_content": {
+                browser.overlay("toast", "📖 reading content");
+                Object textRes = page.evaluate("() => {" +
+                        "  const main = document.querySelector('main, article, #content, .content, body');" +
+                        "  if (!main) return 'no content found';" +
+                        "  const text = main.innerText.replaceAll(/\\s+/g, ' ').trim();" +
+                        "  return text.substring(0, 300) + (text.length > 300 ? '...' : '');" +
+                        "}");
+                return new ExecutionResult(true, String.valueOf(textRes));
+            }
+
+            case "clear_form": {
+                browser.overlay("toast", "🧹 clear form");
+                Object clearRes = page.evaluate("() => {" +
+                        "  const inputs = Array.from(document.querySelectorAll('input:not([type=\"hidden\"]), textarea'));" +
+                        "  inputs.forEach(i => { i.value = ''; i.dispatchEvent(new Event('input', { bubbles: true })); });" +
+                        "  return 'cleared ' + inputs.length + ' inputs';" +
+                        "}");
+                return new ExecutionResult(true, String.valueOf(clearRes));
             }
 
             case "playback_speed": {

@@ -467,6 +467,35 @@ public class PolicyEngine {
                 return res;
             }
 
+            case "zoom_page": {
+                String t = answers.containsKey("transcript") ? answers.get("transcript").getOrDefault("text", "").toString().toLowerCase() : "";
+                if (t.isEmpty() && !textCandidates.isEmpty()) t = textCandidates.get(0).toLowerCase();
+
+                double zoom = 1.25;
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\d+)%").matcher(t);
+                if (m.find()) {
+                    try {
+                        zoom = Integer.parseInt(m.group(1)) / 100.0;
+                    } catch (Exception ignored) {}
+                } else if (t.contains("out")) zoom = 0.85;
+                else if (t.contains("reset") || t.contains("normal")) zoom = 1.0;
+                else if (t.contains("in")) zoom = 1.25;
+
+                Action act = new Action("zoom_page", "zoom " + Math.round(zoom * 100) + "%");
+                act.setZoomLevel(zoom);
+                PolicyResult res = new PolicyResult("act", describe(act));
+                res.setAction(act);
+                return res;
+            }
+
+            case "read_content": {
+                Action act = new Action("read_content", "read content");
+                act.setContentType("main");
+                PolicyResult res = new PolicyResult("act", describe(act));
+                res.setAction(act);
+                return res;
+            }
+
             case "playback_speed": {
                 String t = answers.containsKey("transcript") ? answers.get("transcript").getOrDefault("text", "").toString().toLowerCase() : "";
                 if (t.isEmpty() && !textCandidates.isEmpty()) t = textCandidates.get(0).toLowerCase();

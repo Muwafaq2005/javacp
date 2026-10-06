@@ -89,4 +89,13 @@ public class Action {
 
     public String getYtCommand() { return ytCommand; }
     public void setYtCommand(String ytCommand) { this.ytCommand = ytCommand; }
+
+    private Double zoomLevel;
+    private String contentType;
+
+    public Double getZoomLevel() { return zoomLevel; }
+    public void setZoomLevel(Double zoomLevel) { this.zoomLevel = zoomLevel; }
+
+    public String getContentType() { return contentType; }
+    public void setContentType(String contentType) { this.contentType = contentType; }
 }

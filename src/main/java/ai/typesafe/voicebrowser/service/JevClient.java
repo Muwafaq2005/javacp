@@ -274,7 +274,13 @@ public class JevClient {
 
         // Detect Intent
         String intent = "none";
-        if (t.matches(".*(speed|rate|playback speed).*") || t.contains("faster") || t.contains("slower") || t.contains("double speed") || t.contains("normal speed")) {
+        if (t.startsWith("zoom") || t.contains("zoom in") || t.contains("zoom out") || t.contains("reset zoom")) {
+            intent = "zoom_page";
+        } else if (t.contains("read page") || t.contains("read article") || t.contains("read content") || t.contains("read main")) {
+            intent = "read_content";
+        } else if (t.equals("clear form") || t.equals("reset form") || t.equals("empty form")) {
+            intent = "clear_form";
+        } else if (t.matches(".*(speed|rate|playback speed).*") || t.contains("faster") || t.contains("slower") || t.contains("double speed") || t.contains("normal speed")) {
             intent = "playback_speed";
         } else if (t.contains("subtitles") || t.contains("captions") || t.equals("cc") || t.contains("toggle cc") || t.contains("theater mode") || t.contains("theatre mode") || t.contains("miniplayer") || t.contains("like video") || t.equals("like") || t.contains("subscribe") || t.contains("comments") || t.contains("next chapter") || t.contains("previous chapter")) {
             intent = "youtube_action";
