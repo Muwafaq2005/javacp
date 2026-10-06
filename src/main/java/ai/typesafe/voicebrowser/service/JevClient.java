@@ -274,7 +274,11 @@ public class JevClient {
 
         // Detect Intent
         String intent = "none";
-        if (t.matches(".*(volume|sound)\\s*(up|down|increase|decrease|more|less).*") || t.matches(".*set\\s*volume.*")) {
+        if (t.matches(".*(speed|rate|playback speed).*") || t.contains("faster") || t.contains("slower") || t.contains("double speed") || t.contains("normal speed")) {
+            intent = "playback_speed";
+        } else if (t.contains("subtitles") || t.contains("captions") || t.equals("cc") || t.contains("toggle cc") || t.contains("theater mode") || t.contains("theatre mode") || t.contains("miniplayer") || t.contains("like video") || t.equals("like") || t.contains("subscribe") || t.contains("comments") || t.contains("next chapter") || t.contains("previous chapter")) {
+            intent = "youtube_action";
+        } else if (t.matches(".*(volume|sound)\\s*(up|down|increase|decrease|more|less).*") || t.matches(".*set\\s*volume.*")) {
             intent = "volume_control";
         } else if (t.matches(".*(skip|rewind|forward|backward|seek).*\\s*\\d+.*") || t.matches(".*(fast forward|rewind).*")) {
             intent = "seek_media";

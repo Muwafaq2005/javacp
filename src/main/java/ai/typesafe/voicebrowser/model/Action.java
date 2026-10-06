@@ -80,4 +80,13 @@ public class Action {
 
     public Integer getSeekSeconds() { return seekSeconds; }
     public void setSeekSeconds(Integer seekSeconds) { this.seekSeconds = seekSeconds; }
+
+    private Double playbackRate;
+    private String ytCommand;
+
+    public Double getPlaybackRate() { return playbackRate; }
+    public void setPlaybackRate(Double playbackRate) { this.playbackRate = playbackRate; }
+
+    public String getYtCommand() { return ytCommand; }
+    public void setYtCommand(String ytCommand) { this.ytCommand = ytCommand; }
 }

@@ -236,6 +236,66 @@ public class Executor {
                 return new ExecutionResult(success != null, success != null ? String.valueOf(success) : "ordinal item not found");
             }
 
+            case "playback_speed": {
+                double rate = action.getPlaybackRate() != null ? action.getPlaybackRate() : 1.0;
+                browser.overlay("toast", "⚡ speed " + rate + "x");
+                Object speedRes = page.evaluate("([rate]) => {" +
+                        "  const v = document.querySelector('video, audio');" +
+                        "  if (!v) return 'no media element found';" +
+                        "  v.playbackRate = rate;" +
+                        "  return 'playbackRate=' + v.playbackRate + 'x';" +
+                        "}", List.of(rate));
+                return new ExecutionResult(true, String.valueOf(speedRes));
+            }
+
+            case "youtube_action": {
+                String cmd = action.getYtCommand() != null ? action.getYtCommand() : "cc";
+                browser.overlay("toast", "📺 youtube " + cmd);
+
+                switch (cmd) {
+                    case "cc":
+                        page.keyboard().press("c");
+                        return new ExecutionResult(true, "toggled captions (c)");
+                    case "theater":
+                        page.keyboard().press("t");
+                        return new ExecutionResult(true, "toggled theater mode (t)");
+                    case "miniplayer":
+                        page.keyboard().press("i");
+                        return new ExecutionResult(true, "toggled miniplayer (i)");
+                    case "next_chapter":
+                        page.keyboard().press("Control+ArrowRight");
+                        return new ExecutionResult(true, "next chapter (Ctrl+Right)");
+                    case "prev_chapter":
+                        page.keyboard().press("Control+ArrowLeft");
+                        return new ExecutionResult(true, "previous chapter (Ctrl+Left)");
+                    case "comments":
+                        page.evaluate("() => {" +
+                                "  const comments = document.querySelector('ytd-comments, #comments');" +
+                                "  if (comments) comments.scrollIntoView({ behavior: 'smooth' });" +
+                                "  else window.scrollBy({ top: 600, behavior: 'smooth' });" +
+                                "}");
+                        return new ExecutionResult(true, "scrolled to comments");
+                    case "like":
+                        Object likeRes = page.evaluate("() => {" +
+                                "  const btn = document.querySelector('like-button-view-model button, ytd-toggle-button-renderer button');" +
+                                "  if (!btn) return 'like button not found';" +
+                                "  btn.click();" +
+                                "  return 'liked video';" +
+                                "}");
+                        return new ExecutionResult(true, String.valueOf(likeRes));
+                    case "subscribe":
+                        Object subRes = page.evaluate("() => {" +
+                                "  const btn = document.querySelector('ytd-subscribe-button-renderer button, #subscribe-button button');" +
+                                "  if (!btn) return 'subscribe button not found';" +
+                                "  btn.click();" +
+                                "  return 'subscribed';" +
+                                "}");
+                        return new ExecutionResult(true, String.valueOf(subRes));
+                    default:
+                        return new ExecutionResult(false, "unknown youtube action " + cmd);
+                }
+            }
+
             case "media_control": {
                 String cmd = action.getMediaCommand() != null ? action.getMediaCommand() : "toggle";
                 browser.overlay("toast", "⏯ media " + cmd);

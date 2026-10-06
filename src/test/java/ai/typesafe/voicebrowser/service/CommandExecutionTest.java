@@ -115,4 +115,46 @@ public class CommandExecutionTest {
         JevDecisionResponse seekResp = JevClient.decide("skip 10 seconds", Collections.emptyList(), "https://youtube.com", "YouTube", "youtube", Map.of("text", List.of("skip 10 seconds")));
         assertEquals("seek_media", seekResp.answers().get("intent").get("choice"));
     }
+
+    @Test
+    @DisplayName("Should evaluate playback speed and YouTube specific voice commands")
+    void testPlaybackSpeedAndYouTubeActions() {
+        JevDecisionResponse speedResp = JevClient.decide("speed 1.5x", Collections.emptyList(), "https://youtube.com", "YouTube", "youtube", Map.of("text", List.of("speed 1.5x")));
+        assertEquals("playback_speed", speedResp.answers().get("intent").get("choice"));
+
+        PolicyResult speedPol = PolicyEngine.evaluatePolicy(
+                speedResp.answers(),
+                Map.of("text", List.of("speed 1.5x")),
+                Collections.emptyList(),
+                "https://youtube.com",
+                "YouTube",
+                "youtube",
+                null,
+                100,
+                true,
+                null,
+                Collections.emptyList()
+        );
+        assertEquals("act", speedPol.getDecision());
+        assertEquals(1.5, speedPol.getAction().getPlaybackRate());
+
+        JevDecisionResponse ccResp = JevClient.decide("turn on captions", Collections.emptyList(), "https://youtube.com", "YouTube", "youtube", Map.of("text", List.of("turn on captions")));
+        assertEquals("youtube_action", ccResp.answers().get("intent").get("choice"));
+
+        PolicyResult ccPol = PolicyEngine.evaluatePolicy(
+                ccResp.answers(),
+                Map.of("text", List.of("turn on captions")),
+                Collections.emptyList(),
+                "https://youtube.com",
+                "YouTube",
+                "youtube",
+                null,
+                100,
+                true,
+                null,
+                Collections.emptyList()
+        );
+        assertEquals("act", ccPol.getDecision());
+        assertEquals("cc", ccPol.getAction().getYtCommand());
+    }
 }

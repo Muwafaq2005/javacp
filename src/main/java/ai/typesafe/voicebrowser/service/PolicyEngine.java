@@ -467,6 +467,49 @@ public class PolicyEngine {
                 return res;
             }
 
+            case "playback_speed": {
+                String t = answers.containsKey("transcript") ? answers.get("transcript").getOrDefault("text", "").toString().toLowerCase() : "";
+                if (t.isEmpty() && !textCandidates.isEmpty()) t = textCandidates.get(0).toLowerCase();
+
+                double rate = 1.0;
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\d+(\\.\\d+)?)x?").matcher(t);
+                if (m.find()) {
+                    try {
+                        rate = Double.parseDouble(m.group(1));
+                    } catch (Exception ignored) {}
+                } else if (t.contains("double")) rate = 2.0;
+                else if (t.contains("faster") || t.contains("speed up")) rate = 1.5;
+                else if (t.contains("slower") || t.contains("slow down")) rate = 0.75;
+                else if (t.contains("normal")) rate = 1.0;
+
+                Action act = new Action("playback_speed", "speed " + rate + "x");
+                act.setPlaybackRate(rate);
+                PolicyResult res = new PolicyResult("act", describe(act));
+                res.setAction(act);
+                return res;
+            }
+
+            case "youtube_action": {
+                String t = answers.containsKey("transcript") ? answers.get("transcript").getOrDefault("text", "").toString().toLowerCase() : "";
+                if (t.isEmpty() && !textCandidates.isEmpty()) t = textCandidates.get(0).toLowerCase();
+
+                String cmd = "cc";
+                if (t.contains("theater") || t.contains("theatre")) cmd = "theater";
+                else if (t.contains("miniplayer")) cmd = "miniplayer";
+                else if (t.contains("captions") || t.contains("subtitles") || t.contains("cc")) cmd = "cc";
+                else if (t.contains("like")) cmd = "like";
+                else if (t.contains("subscribe")) cmd = "subscribe";
+                else if (t.contains("comments")) cmd = "comments";
+                else if (t.contains("next chapter")) cmd = "next_chapter";
+                else if (t.contains("previous chapter")) cmd = "prev_chapter";
+
+                Action act = new Action("youtube_action", "youtube " + cmd);
+                act.setYtCommand(cmd);
+                PolicyResult res = new PolicyResult("act", describe(act));
+                res.setAction(act);
+                return res;
+            }
+
             case "seek_media": {
                 String t = answers.containsKey("transcript") ? answers.get("transcript").getOrDefault("text", "").toString().toLowerCase() : "";
                 if (t.isEmpty() && !textCandidates.isEmpty()) t = textCandidates.get(0).toLowerCase();

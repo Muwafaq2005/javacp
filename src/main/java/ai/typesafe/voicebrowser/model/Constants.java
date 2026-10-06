@@ -47,7 +47,7 @@ public class Constants {
 
     public static final Set<String> PAYLOAD_INTENTS = Set.of(
             "search_web", "type_into_field", "select_option", "clear_field", "press_key",
-            "select_ordinal", "volume_control", "seek_media"
+            "select_ordinal", "volume_control", "seek_media", "playback_speed", "youtube_action"
     );
 
     public static final Set<String> TARGET_INTENTS = Set.of(
