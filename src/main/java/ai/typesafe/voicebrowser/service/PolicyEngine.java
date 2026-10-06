@@ -419,10 +419,20 @@ public class PolicyEngine {
                 String t = answers.containsKey("transcript") ? answers.get("transcript").getOrDefault("text", "").toString().toLowerCase() : "";
                 if (t.isEmpty() && !textCandidates.isEmpty()) t = textCandidates.get(0).toLowerCase();
 
-                if (t.contains("second") || t.contains("2nd") || t.contains("two")) ordinal = 2;
-                else if (t.contains("third") || t.contains("3rd") || t.contains("three")) ordinal = 3;
-                else if (t.contains("fourth") || t.contains("4th") || t.contains("four")) ordinal = 4;
-                else if (t.contains("fifth") || t.contains("5th") || t.contains("five")) ordinal = 5;
+                java.util.regex.Matcher numMatcher = java.util.regex.Pattern.compile("(\\d+)(st|nd|rd|th)?").matcher(t);
+                if (numMatcher.find()) {
+                    try {
+                        ordinal = Integer.parseInt(numMatcher.group(1));
+                    } catch (Exception ignored) {}
+                } else if (t.contains("second") || t.contains("two")) ordinal = 2;
+                else if (t.contains("third") || t.contains("three")) ordinal = 3;
+                else if (t.contains("fourth") || t.contains("four")) ordinal = 4;
+                else if (t.contains("fifth") || t.contains("five")) ordinal = 5;
+                else if (t.contains("sixth") || t.contains("six")) ordinal = 6;
+                else if (t.contains("seventh") || t.contains("seven")) ordinal = 7;
+                else if (t.contains("eighth") || t.contains("eight")) ordinal = 8;
+                else if (t.contains("ninth") || t.contains("nine")) ordinal = 9;
+                else if (t.contains("tenth") || t.contains("ten")) ordinal = 10;
 
                 String category = "video";
                 if (t.contains("link")) category = "link";
