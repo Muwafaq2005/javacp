@@ -1,5 +1,6 @@
 package ai.typesafe.voicebrowser.service;
 
+import ai.typesafe.voicebrowser.model.ElementSnapshot;
 import ai.typesafe.voicebrowser.model.PolicyResult;
 import ai.typesafe.voicebrowser.service.JevClient.JevDecisionResponse;
 import org.junit.jupiter.api.DisplayName;
@@ -156,5 +157,61 @@ public class CommandExecutionTest {
         );
         assertEquals("act", ccPol.getDecision());
         assertEquals("cc", ccPol.getAction().getYtCommand());
+    }
+
+    private static PolicyResult policyFor(JevDecisionResponse resp, List<ElementSnapshot> elements, ai.typesafe.voicebrowser.model.Action pending) {
+        return PolicyEngine.evaluatePolicy(resp.answers(), resp.candidates(), elements, "https://shop.example.com", "Shop", "generic",
+                null, 100, true, pending, Collections.emptyList());
+    }
+
+    @Test
+    @DisplayName("Heuristic click resolves to click_element on the element named in the transcript")
+    void testHeuristicClickTargetsNamedElement() {
+        List<ElementSnapshot> els = List.of(new ElementSnapshot("e01", "link", "Home"), new ElementSnapshot("e02", "link", "Documentation"));
+        JevDecisionResponse resp = JevClient.decide("click documentation", els, "https://shop.example.com", "Shop", "generic", Collections.emptyMap());
+        assertEquals("click_element", resp.answers().get("intent").get("choice"));
+
+        PolicyResult pol = policyFor(resp, els, null);
+        assertEquals("act", pol.getDecision());
+        assertEquals("click_element", pol.getAction().getType());
+        assertEquals("e02", pol.getAction().getTargetId());
+    }
+
+    @Test
+    @DisplayName("Heuristic click with no matching element waits instead of clicking the first element")
+    void testHeuristicClickWithoutMatchDoesNotGuess() {
+        List<ElementSnapshot> els = List.of(new ElementSnapshot("e01", "link", "Home"));
+        JevDecisionResponse resp = JevClient.decide("click pricing", els, "https://shop.example.com", "Shop", "generic", Collections.emptyMap());
+        assertNotEquals("act", policyFor(resp, els, null).getDecision());
+    }
+
+    @Test
+    @DisplayName("Destructive click asks for confirmation, and spoken confirm executes it")
+    void testDestructiveClickNeedsConfirm() {
+        List<ElementSnapshot> els = List.of(new ElementSnapshot("e01", "button", "Place order"));
+        JevDecisionResponse resp = JevClient.decide("click place order", els, "https://shop.example.com", "Shop", "generic", Collections.emptyMap());
+        PolicyResult pol = policyFor(resp, els, null);
+        assertEquals("confirm", pol.getDecision());
+
+        JevDecisionResponse yes = JevClient.decide("confirm", els, "https://shop.example.com", "Shop", "generic", Collections.emptyMap());
+        PolicyResult confirmed = policyFor(yes, els, pol.getAction());
+        assertEquals("act", confirmed.getDecision());
+        assertEquals("e01", confirmed.getAction().getTargetId());
+
+        assertEquals("ignore", policyFor(yes, els, null).getDecision());
+    }
+
+    @Test
+    @DisplayName("Request carries intent criteria and span questions for the model")
+    @SuppressWarnings("unchecked")
+    void testRequestHasFullQuestionSet() {
+        Map<String, Object> req = JevClient.buildRequest("search for alan turing", Collections.emptyList(), "https://example.com", "Example", "example_com", Collections.emptyMap());
+        Map<String, Object> questions = (Map<String, Object>) req.get("questions");
+        Map<String, Object> intentCriteria = (Map<String, Object>) ((Map<String, Object>) questions.get("intent")).get("criteria");
+        assertTrue(intentCriteria.containsKey("search_web"));
+        assertTrue(intentCriteria.containsKey("youtube_action"));
+        assertTrue(questions.containsKey("text_span"));
+        assertTrue(questions.containsKey("tab_direction"));
+        assertFalse(questions.containsKey("is_correction"), "no previous action to correct");
     }
 }

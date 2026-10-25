@@ -92,6 +92,12 @@ public class PolicyEngine {
             }
         }
 
+        if (pending == null && ("confirm".equals(intentName) || "cancel".equals(intentName))) {
+            PolicyResult res = new PolicyResult("ignore", "nothing pending to " + intentName);
+            res.setReasons(reasons);
+            return res;
+        }
+
         // 1. Correction handling
         if (isCorrection) {
             reasons.add(new PolicyResult.GateReason("is_correction", correction, Constants.T.correction(), true, "rejects previous action: " + lastAction.said()));

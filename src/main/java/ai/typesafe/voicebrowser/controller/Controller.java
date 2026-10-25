@@ -38,7 +38,7 @@ public class Controller {
     private Consumed consumed = null;
     private Action pending = null;
     private CandidatesOverlay candidates = null;
-    private PolicyResult lastDecision = null;
+    private Map<String, Object> lastDecision = null;
 
     private boolean busy = false;
     private final List<Map<String, Object>> logEntries = new CopyOnWriteArrayList<>();
@@ -210,8 +210,22 @@ public class Controller {
                     recentActions
             );
 
-            lastDecision = policy;
-            emit("decision", Map.of("transcript", utt.text(), "policy", policy, "latencyMs", result.latencyMs()));
+            if (result.warning() != null) log("warn", result.warning());
+
+            // Shape expected by renderDecision() in index.html
+            Map<String, Object> decision = new HashMap<>();
+            decision.put("transcript", utt.text());
+            decision.put("policy", policy);
+            decision.put("answers", result.answers() != null ? result.answers() : Map.of());
+            decision.put("latencyMs", result.latencyMs());
+            decision.put("questionCount", result.questionCount());
+            decision.put("usage", result.usage());
+            decision.put("costUsd", result.costUsd());
+            decision.put("model", result.model());
+            decision.put("trigger", trigger);
+            decision.put("silentMs", silentMs);
+            lastDecision = decision;
+            emit("decision", decision);
             log("act".equals(policy.getDecision()) ? "act" : "info", result.latencyMs() + "ms · \"" + utt.text() + "\" → " + policy.getDecision() + ": " + policy.getSummary());
 
             switch (policy.getDecision()) {
