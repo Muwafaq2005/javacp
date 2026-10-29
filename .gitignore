@@ -9,3 +9,4 @@ test-results/
 target/
 apache-maven-3.9.9/
 *.pdf
+*.db

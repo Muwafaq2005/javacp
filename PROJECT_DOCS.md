@@ -56,6 +56,8 @@ Instead of executing raw speech commands blindly, the system employs **Speculati
 | **Browser Automation**| Playwright Java 1.47.0 | Headless / Headed Chromium automation, element locators, JS injection |
 | **JSON Serialization** | Jackson Databind 2.17.2 | DTO serialization, request encoding, state size budgeting |
 | **Testing** | JUnit 5 (JUnit Platform 1.10.3) | Unit testing for policy engine, candidate extraction, and element compaction |
+| **Server-Side Views** | JSP 3.0 & Jakarta JSTL (Tomcat Jasper) | Server-rendered Login, Registration, and User Profile Portal views |
+| **Database & Persistence** | SQLite JDBC (`sqlite-jdbc` 3.46.1.3) | Raw JDBC (`PreparedStatement`, `ResultSet`) for persistent user authentication |
 | **Frontend UI** | HTML5, Vanilla CSS3, Web Speech API | Embedded control room dashboard served via Spring Boot static resources |
 
 ---
