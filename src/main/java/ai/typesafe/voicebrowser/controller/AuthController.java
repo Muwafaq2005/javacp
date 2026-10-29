@@ -1,10 +1,13 @@
 package ai.typesafe.voicebrowser.controller;
 
+import java.util.Map;
+
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 import ai.typesafe.voicebrowser.model.User;
 import ai.typesafe.voicebrowser.service.DatabaseService;
@@ -26,8 +29,12 @@ public class AuthController {
     public String showLoginPage(
             @RequestParam(value = "registered", required = false) String registered,
             @RequestParam(value = "logout", required = false) String logout,
+            HttpSession session,
             Model model
     ) {
+        if (session != null && session.getAttribute("currentUser") != null) {
+            return "redirect:/";
+        }
         if ("true".equalsIgnoreCase(registered)) {
             model.addAttribute("successMessage", "Account created successfully! Please sign in.");
         }
@@ -52,7 +59,8 @@ public class AuthController {
         User user = dbService.authenticate(username, password);
         if (user != null) {
             session.setAttribute("currentUser", user);
-            return "redirect:/portal";
+            // Redirect directly to the controlling dashboard
+            return "redirect:/";
         } else {
             model.addAttribute("errorMessage", "Invalid username or password. Please try again.");
             model.addAttribute("username", username);
@@ -61,7 +69,10 @@ public class AuthController {
     }
 
     @GetMapping("/signup")
-    public String showSignupPage() {
+    public String showSignupPage(HttpSession session) {
+        if (session != null && session.getAttribute("currentUser") != null) {
+            return "redirect:/";
+        }
         return "signup";
     }
 
@@ -115,5 +126,21 @@ public class AuthController {
     public String handleLogout(HttpSession session) {
         session.invalidate();
         return "redirect:/login?logout=true";
+    }
+
+    @GetMapping("/api/user")
+    @ResponseBody
+    public Map<String, Object> getCurrentUser(HttpSession session) {
+        if (session != null) {
+            User user = (User) session.getAttribute("currentUser");
+            if (user != null) {
+                return Map.of(
+                        "authenticated", true,
+                        "username", user.getUsername(),
+                        "email", user.getEmail()
+                );
+            }
+        }
+        return Map.of("authenticated", false);
     }
 }

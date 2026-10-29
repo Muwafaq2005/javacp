@@ -6,7 +6,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Voice Browser Portal · Welcome</title>
+    <title>Voice Browser · Account Portal</title>
     <style>
         :root {
             --bg: #0b0f17;
@@ -191,16 +191,6 @@
             font-weight: 600;
             margin-left: 6px;
         }
-        .tech-pill {
-            background: var(--panel2);
-            border: 1px solid var(--line);
-            padding: 4px 8px;
-            border-radius: 6px;
-            font-size: 11px;
-            color: var(--muted);
-            display: inline-block;
-            margin: 2px 4px 2px 0;
-        }
     </style>
 </head>
 <body>
@@ -214,7 +204,7 @@
 <div class="container">
     <header>
         <div class="logo-group">
-            <h1>Voice<span>Browser</span> <span class="badge">Session Active</span></h1>
+            <h1>Voice<span>Browser</span> <span class="badge">Active</span></h1>
         </div>
         <div class="actions">
             <span style="font-size: 13px; color: var(--muted);">Signed in as <b style="color: var(--text);"><%= user != null ? user.getUsername() : "Guest" %></b></span>
@@ -225,18 +215,11 @@
     <div class="hero-card">
         <div class="hero-text">
             <h2>Welcome back, <%= user != null ? user.getUsername() : "User" %>!</h2>
-            <p>Your authentication session is backed by SQLite via raw <b>JDBC</b>, and rendered by <b>JSP</b>. Ready to control the headed browser by voice?</p>
-            <div style="margin-top: 12px;">
-                <span class="tech-pill">JSP 3.0</span>
-                <span class="tech-pill">Spring Boot 3.3.4</span>
-                <span class="tech-pill">SQLite JDBC</span>
-                <span class="tech-pill">Playwright Java</span>
-                <span class="tech-pill">Web Speech API</span>
-            </div>
+            <p>Your session is active. Ready to launch into the Voice Browser controlling dashboard and speak commands?</p>
         </div>
         <div>
             <a href="/" class="launch-btn">
-                <span>&#127897;&#65039; Launch Voice Browser</span>
+                <span>&#127897;&#65039; Launch Dashboard</span>
                 <span>&rarr;</span>
             </a>
         </div>
@@ -244,8 +227,8 @@
 
     <div class="card">
         <h3>
-            <span>&#128190; Users Persisted in SQLite Database (Via JDBC)</span>
-            <span style="font-size: 11px; font-weight: normal; color: var(--muted);">Table: users (voicebrowser.db)</span>
+            <span>&#128101; Registered Operator Accounts</span>
+            <span style="font-size: 11px; font-weight: normal; color: var(--muted);"><%= allUsers != null ? allUsers.size() : 0 %> users</span>
         </h3>
         <table>
             <thead>
@@ -279,7 +262,7 @@
     </div>
 
     <div style="text-align: center; margin-top: 10px;">
-        <a href="/" class="btn btn-secondary">&larr; Open Voice Browser Dashboard directly</a>
+        <a href="/" class="btn btn-secondary">&larr; Return to Voice Browser Dashboard</a>
     </div>
 </div>
 

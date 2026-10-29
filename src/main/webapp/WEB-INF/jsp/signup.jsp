@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Account · Voice Browser Portal</title>
+    <title>Create Account · Voice Browser</title>
     <style>
         :root {
             --bg: #0b0f17;
@@ -36,25 +36,25 @@
             background: var(--panel);
             border: 1px solid var(--line);
             border-radius: 16px;
-            padding: 32px 28px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            padding: 36px 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
         }
         .header {
             text-align: center;
-            margin-bottom: 24px;
+            margin-bottom: 26px;
         }
-        .badge {
-            display: inline-block;
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: var(--blue);
-            background: rgba(59, 130, 246, 0.1);
+        .header .logo-mark {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: rgba(59, 130, 246, 0.12);
             border: 1px solid rgba(59, 130, 246, 0.3);
-            padding: 4px 10px;
-            border-radius: 999px;
-            margin-bottom: 12px;
+            color: var(--blue);
+            font-size: 20px;
+            margin-bottom: 14px;
         }
         h1 {
             font-size: 22px;
@@ -67,7 +67,7 @@
             color: var(--muted);
         }
         .alert {
-            padding: 10px 14px;
+            padding: 11px 14px;
             border-radius: 8px;
             font-size: 13px;
             margin-bottom: 18px;
@@ -79,7 +79,7 @@
             color: #fca5a5;
         }
         .form-group {
-            margin-bottom: 16px;
+            margin-bottom: 18px;
         }
         label {
             display: block;
@@ -88,14 +88,14 @@
             text-transform: uppercase;
             letter-spacing: 0.05em;
             color: var(--muted);
-            margin-bottom: 6px;
+            margin-bottom: 7px;
         }
         input[type="text"], input[type="email"], input[type="password"] {
             width: 100%;
             background: var(--panel2);
             border: 1px solid var(--line);
             border-radius: 8px;
-            padding: 11px 14px;
+            padding: 12px 14px;
             font-size: 14px;
             color: var(--text);
             transition: border-color 0.15s, box-shadow 0.15s;
@@ -116,7 +116,7 @@
             border-radius: 8px;
             cursor: pointer;
             transition: opacity 0.15s, transform 0.05s;
-            margin-top: 8px;
+            margin-top: 6px;
         }
         .submit-btn:hover {
             opacity: 0.92;
@@ -126,7 +126,7 @@
         }
         .footer-links {
             text-align: center;
-            margin-top: 20px;
+            margin-top: 22px;
             font-size: 13px;
             color: var(--muted);
         }
@@ -144,9 +144,9 @@
 
 <div class="auth-container">
     <div class="header">
-        <span class="badge">JSP &middot; Spring MVC &middot; SQLite JDBC</span>
+        <div class="logo-mark">&#128100;</div>
         <h1>Create Account</h1>
-        <p class="subtitle">Register a new profile in the SQLite database</p>
+        <p class="subtitle">Set up your credentials to access the Voice Browser</p>
     </div>
 
     <% if (request.getAttribute("errorMessage") != null) { %>
@@ -176,13 +176,11 @@
             <input type="password" id="confirmPassword" name="confirmPassword" required placeholder="Re-enter your password">
         </div>
 
-        <button type="submit" class="submit-btn">Create Account (via JDBC)</button>
+        <button type="submit" class="submit-btn">Create Account</button>
     </form>
 
     <div class="footer-links">
         Already have an account? <a href="/login">Sign in here</a>
-        <br><br>
-        <a href="/" style="color: var(--muted); font-size: 12px;">&larr; Return to Voice Control Dashboard</a>
     </div>
 </div>
 

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sign In · Voice Browser Portal</title>
+    <title>Sign In · Voice Browser</title>
     <style>
         :root {
             --bg: #0b0f17;
@@ -36,25 +36,25 @@
             background: var(--panel);
             border: 1px solid var(--line);
             border-radius: 16px;
-            padding: 32px 28px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            padding: 36px 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
         }
         .header {
             text-align: center;
-            margin-bottom: 24px;
+            margin-bottom: 26px;
         }
-        .badge {
-            display: inline-block;
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: var(--accent);
-            background: rgba(245, 158, 11, 0.1);
+        .header .logo-mark {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: rgba(245, 158, 11, 0.12);
             border: 1px solid rgba(245, 158, 11, 0.3);
-            padding: 4px 10px;
-            border-radius: 999px;
-            margin-bottom: 12px;
+            color: var(--accent);
+            font-size: 20px;
+            margin-bottom: 14px;
         }
         h1 {
             font-size: 22px;
@@ -62,12 +62,15 @@
             color: #ffffff;
             margin-bottom: 6px;
         }
+        h1 span {
+            color: var(--accent);
+        }
         p.subtitle {
             font-size: 13px;
             color: var(--muted);
         }
         .alert {
-            padding: 10px 14px;
+            padding: 11px 14px;
             border-radius: 8px;
             font-size: 13px;
             margin-bottom: 18px;
@@ -89,7 +92,7 @@
             color: #93c5fd;
         }
         .form-group {
-            margin-bottom: 16px;
+            margin-bottom: 18px;
         }
         label {
             display: block;
@@ -98,14 +101,14 @@
             text-transform: uppercase;
             letter-spacing: 0.05em;
             color: var(--muted);
-            margin-bottom: 6px;
+            margin-bottom: 7px;
         }
         input[type="text"], input[type="password"] {
             width: 100%;
             background: var(--panel2);
             border: 1px solid var(--line);
             border-radius: 8px;
-            padding: 11px 14px;
+            padding: 12px 14px;
             font-size: 14px;
             color: var(--text);
             transition: border-color 0.15s, box-shadow 0.15s;
@@ -126,7 +129,7 @@
             border-radius: 8px;
             cursor: pointer;
             transition: opacity 0.15s, transform 0.05s;
-            margin-top: 8px;
+            margin-top: 6px;
         }
         .submit-btn:hover {
             opacity: 0.92;
@@ -136,7 +139,7 @@
         }
         .footer-links {
             text-align: center;
-            margin-top: 20px;
+            margin-top: 22px;
             font-size: 13px;
             color: var(--muted);
         }
@@ -149,20 +152,22 @@
             text-decoration: underline;
         }
         .demo-credentials {
-            margin-top: 18px;
+            margin-top: 20px;
             padding-top: 14px;
             border-top: 1px solid var(--line);
             font-size: 12px;
             color: var(--muted);
             display: flex;
             justify-content: space-between;
+            align-items: center;
         }
         .demo-credentials code {
             color: var(--text);
             background: var(--panel2);
-            padding: 2px 6px;
+            padding: 2px 7px;
             border-radius: 4px;
             font-family: monospace;
+            border: 1px solid var(--line);
         }
     </style>
 </head>
@@ -170,9 +175,9 @@
 
 <div class="auth-container">
     <div class="header">
-        <span class="badge">JSP &middot; Spring MVC &middot; SQLite JDBC</span>
-        <h1>Voice Browser Portal</h1>
-        <p class="subtitle">Sign in to manage and run voice browser operations</p>
+        <div class="logo-mark">&#127897;&#65039;</div>
+        <h1>Voice<span>Browser</span></h1>
+        <p class="subtitle">Sign in to access your voice control dashboard</p>
     </div>
 
     <% if (request.getAttribute("errorMessage") != null) { %>
@@ -208,14 +213,12 @@
     </form>
 
     <div class="demo-credentials">
-        <span>Default JDBC Seed:</span>
+        <span>Default Demo Login:</span>
         <span><code>admin</code> / <code>admin123</code></span>
     </div>
 
     <div class="footer-links">
         Don't have an account? <a href="/signup">Sign up now</a>
-        <br><br>
-        <a href="/" style="color: var(--muted); font-size: 12px;">&larr; Return to Voice Control Dashboard</a>
     </div>
 </div>
 
