@@ -19,7 +19,7 @@ class DatabaseServiceTest {
 
     @BeforeEach
     void setUp() {
-        dbService = new DatabaseService();
+        dbService = new DatabaseService("jdbc:sqlite:target/test-voicebrowser.db");
         dbService.initDatabase();
     }
 

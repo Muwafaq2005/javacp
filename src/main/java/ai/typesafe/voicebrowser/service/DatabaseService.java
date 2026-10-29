@@ -24,7 +24,15 @@ import jakarta.annotation.PostConstruct;
 public class DatabaseService {
 
     private static final Logger log = LoggerFactory.getLogger(DatabaseService.class);
-    private static final String DB_URL = "jdbc:sqlite:voicebrowser.db";
+    private final String dbUrl;
+
+    public DatabaseService() {
+        this("jdbc:sqlite:voicebrowser.db");
+    }
+
+    public DatabaseService(String dbUrl) {
+        this.dbUrl = dbUrl;
+    }
 
     @PostConstruct
     public void initDatabase() {
@@ -54,7 +62,7 @@ public class DatabaseService {
     }
 
     public Connection getConnection() throws SQLException {
-        return DriverManager.getConnection(DB_URL);
+        return DriverManager.getConnection(this.dbUrl);
     }
 
     /**
