@@ -1,8 +1,14 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ page import="ai.typesafe.voicebrowser.model.User" %>
+<%
+    User currentUser = (User) request.getAttribute("currentUser");
+    String username = currentUser != null ? currentUser.getUsername() : "Operator";
+%>
 <!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>voice-browser · Jev control room (Java)</title>
+<title>voice-browser · Controlling Dashboard</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>
   :root{
@@ -81,7 +87,7 @@
   <span class="pill">cost <b id="cost">$0.000000</b></span>
   <span class="pill" title="average: last spoken word → decision / → action finished (incl. page load)">word→decide <b id="c2d">–</b> ms · →done <b id="c2a">–</b> ms</span>
   <div class="spacer"></div>
-  <a href="/portal" id="user-badge" class="pill" style="text-decoration:none;color:var(--text);font-weight:600;display:inline-flex;align-items:center;gap:5px;">&#128100; <span id="auth-user">Account</span></a>
+  <a href="/portal" id="user-badge" class="pill" style="text-decoration:none;color:var(--text);font-weight:600;display:inline-flex;align-items:center;gap:5px;">&#128100; <span id="auth-user"><%= username %></span></a>
   <a href="/logout" class="pill" style="text-decoration:none;color:var(--red);font-weight:600;" title="Sign out">Sign Out</a>
   <span class="pill" id="ws">connecting…</span>
 </header>
@@ -162,12 +168,6 @@
 (() => {
   const $ = (id) => document.getElementById(id);
   const fmt = (x, d = 2) => (x == null ? "–" : Number(x).toFixed(d));
-  fetch('/api/user').then(r => r.json()).then(d => {
-    if (d && d.authenticated && d.username) {
-      const u = $('auth-user');
-      if (u) u.textContent = d.username;
-    }
-  }).catch(() => {});
   let ws;
   let ui = null;
   let hotIds = new Set();

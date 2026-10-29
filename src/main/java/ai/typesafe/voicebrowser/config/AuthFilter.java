@@ -24,8 +24,8 @@ public class AuthFilter extends OncePerRequestFilter {
 
         String path = request.getRequestURI();
 
-        // Protect root dashboard, index.html, and portal
-        boolean isProtected = "/".equals(path) || "/index.html".equals(path) || "/portal".equals(path);
+        // Protect root dashboard, dashboard, index.html, and portal
+        boolean isProtected = "/".equals(path) || "/dashboard".equals(path) || "/index.html".equals(path) || "/portal".equals(path);
 
         if (isProtected) {
             HttpSession session = request.getSession(false);

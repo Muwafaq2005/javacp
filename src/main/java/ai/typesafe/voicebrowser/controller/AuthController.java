@@ -111,6 +111,16 @@ public class AuthController {
         }
     }
 
+    @GetMapping({"/", "/dashboard"})
+    public String showDashboard(HttpSession session, Model model) {
+        User currentUser = (User) session.getAttribute("currentUser");
+        if (currentUser == null) {
+            return "redirect:/login";
+        }
+        model.addAttribute("currentUser", currentUser);
+        return "dashboard";
+    }
+
     @GetMapping("/portal")
     public String showPortal(HttpSession session, Model model) {
         User currentUser = (User) session.getAttribute("currentUser");
