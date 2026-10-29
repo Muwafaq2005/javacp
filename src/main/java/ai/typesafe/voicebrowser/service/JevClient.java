@@ -1,15 +1,21 @@
 package ai.typesafe.voicebrowser.service;
 
-import ai.typesafe.voicebrowser.model.Constants;
-import ai.typesafe.voicebrowser.model.ElementSnapshot;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import ai.typesafe.voicebrowser.model.Constants;
+import ai.typesafe.voicebrowser.model.ElementSnapshot;
 
 public class JevClient {
 
@@ -124,9 +130,8 @@ public class JevClient {
     }
 
     public static boolean hasApiKey() {
-        String key = System.getenv("TYPESAFE_API_KEY");
-        if (key == null || key.isEmpty()) key = System.getenv("JEV_API_KEY");
-        return key != null && !key.isEmpty() && !"your_typesafe_api_key_here".equals(key);
+        String key = System.getenv("OPENCODE_API_KEY");
+        return key != null && !key.isBlank();
     }
 
     public static String encodeElement(ElementSnapshot el, String pageHost) {
@@ -343,39 +348,80 @@ public class JevClient {
         long t0 = System.currentTimeMillis();
         List<String> warnings = new ArrayList<>();
 
-        // 1. Try TypeSafe AI Cloud API if API key is present
+        // 1. Try OpenCode's free Jev model
         if (hasApiKey()) {
             try {
-                String apiKey = System.getenv("TYPESAFE_API_KEY");
-                if (apiKey == null || apiKey.isEmpty()) apiKey = System.getenv("JEV_API_KEY");
+                String apiKey = System.getenv("OPENCODE_API_KEY");
 
-                Map<String, Object> body = Map.of("state", state, "questions", questions, "model", "jev-1.13.0");
+                Map<String, Object> body = new LinkedHashMap<>();
+                body.put("state", state);
+                body.put("questions", questions);
+                body.put("model", "jev-1.13-free");
+
                 String jsonBody = mapper.writeValueAsString(body);
 
                 HttpRequest httpReq = HttpRequest.newBuilder()
-                        .uri(URI.create("https://api.typesafe.ai/v1/evaluate"))
+                        .uri(URI.create(
+                            "https://opencode.ai/inference/systemone/v1/systemone"
+                        ))
                         .header("Content-Type", "application/json")
                         .header("Authorization", "Bearer " + apiKey)
                         .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
-                        .timeout(Duration.ofSeconds(6))
+                        .timeout(Duration.ofSeconds(15))
                         .build();
 
-                HttpResponse<String> response = httpClient.send(httpReq, HttpResponse.BodyHandlers.ofString());
+                HttpResponse<String> response = httpClient.send(
+                        httpReq,
+                        HttpResponse.BodyHandlers.ofString()
+                );
+
                 long latencyMs = System.currentTimeMillis() - t0;
 
                 if (response.statusCode() == 200) {
                     @SuppressWarnings("unchecked")
-                    Map<String, Object> respMap = mapper.readValue(response.body(), Map.class);
+                    Map<String, Object> respMap =
+                            mapper.readValue(response.body(), Map.class);
+
                     @SuppressWarnings("unchecked")
-                    Map<String, Map<String, Object>> answers = (Map<String, Map<String, Object>>) respMap.get("answers");
+                    Map<String, Map<String, Object>> answers =
+                            (Map<String, Map<String, Object>>)
+                                    respMap.get("answers");
+
                     @SuppressWarnings("unchecked")
-                    Map<String, Object> usage = (Map<String, Object>) respMap.getOrDefault("usage", Map.of("input_tokens", 0, "output_tokens", 0));
-                    String model = (String) respMap.getOrDefault("model", "jev-1.13.0");
-                    return new JevDecisionResponse(answers, latencyMs, usage, costUsd(usage), model, "jev-" + System.currentTimeMillis(), candidates, state, questions.size(), null);
+                    Map<String, Object> usage =
+                            (Map<String, Object>) respMap.getOrDefault(
+                                    "usage", Map.of()
+                            );
+
+                    double cost = 0.0;
+                    Object costValue = usage.get("cost");
+                    if (costValue instanceof Number n) {
+                        cost = n.doubleValue();
+                    }
+
+                    String model = String.valueOf(
+                            respMap.getOrDefault("model", "jev-1.13-free")
+                    );
+
+                    return new JevDecisionResponse(
+                            answers,
+                            latencyMs,
+                            usage,
+                            cost,
+                            model,
+                            "opencode-" + System.currentTimeMillis(),
+                            candidates,
+                            state,
+                            questions.size(),
+                            null
+                    );
                 }
-                warnings.add("TypeSafe API HTTP " + response.statusCode() + ": " + abbreviate(response.body()));
+
+                warnings.add("OpenCode HTTP " + response.statusCode()
+                        + ": " + abbreviate(response.body()));
+
             } catch (Exception e) {
-                warnings.add("TypeSafe API error: " + e);
+                warnings.add("OpenCode API error: " + e.getMessage());
             }
         }
 
