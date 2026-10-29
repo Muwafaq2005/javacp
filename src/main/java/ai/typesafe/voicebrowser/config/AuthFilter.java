@@ -23,6 +23,10 @@ public class AuthFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         String path = request.getRequestURI();
+        int semicolon = path.indexOf(';');
+        if (semicolon != -1) {
+            path = path.substring(0, semicolon);
+        }
 
         // Protect root dashboard, dashboard, index.html, and portal
         boolean isProtected = "/".equals(path) || "/dashboard".equals(path) || "/index.html".equals(path) || "/portal".equals(path);
