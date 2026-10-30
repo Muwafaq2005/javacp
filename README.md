@@ -1,178 +1,273 @@
-# voice-browser — talk to a real browser, it acts before you finish the sentence
+# 🎙️ Voice Browser (Java Edition)
 
-A Node app that controls a **headed Chromium window** (Playwright) by voice. Speech is streamed
-word by word from the browser's Web Speech API to a small Node server; on every partial transcript
-the server asks **Jev** (TypeSafe's System One model, `jev-1.13.0`) one request with a dozen typed
-questions — intent, target element, site, "is the command complete?", "is this even addressed to
-me?", "is it destructive?" — gets typed probabilities back in ~250–350 ms, and code decides whether
-to act, wait, ask, or ignore.
+> **Talk to a real browser — it acts before you finish the sentence.**
 
-Jev never generates text. Search queries, typed text and URLs are extracted as candidate spans by
-code and Jev only *picks* one, which is copied verbatim.
+A high-performance, real-time voice-driven web browser automation application built with **Java 21**, **Spring Boot 3**, and **Playwright Java**. 
+
+Continuous speech streamed word-by-word from the browser's Web Speech API is evaluated across speculative questions (intent, target element, site, completeness, safety) in ~250–350 ms. A calibrated safety policy engine then decides whether to **act**, **wait**, **confirm**, **disambiguate**, or **ignore**.
+
+---
+
+## 🏛️ Architecture & Control Flow
 
 ```
- mic (Chrome, Web Speech API)          Node server (owns the API key)             controlled window
- ───────────────────────────    ws     ───────────────────────────────────         ──────────────────
- partial transcripts  ───────────────▶ debounce 200 ms                            headed Chromium via
- "go to"  "go to wiki"                 snapshot page (≤100 elements, e01..eNN) ◀── Playwright, persistent
- "go to wikipedia" (final)             ONE Jev request: 9–11 questions             profile, overlay
-                                       policy (thresholds in constants.js)  ───▶  highlight / toast /
- control page ◀─────────────────────── decision + bars + latency + cost            numbered candidates
+ mic (Chrome / Edge Web Speech API)        Spring Boot 3 Server (Port 8787)            Controlled Chromium Window
+ ──────────────────────────────────   ws   ────────────────────────────────────        ──────────────────────────
+ partial transcripts ───────────────▶ Controller (180 ms debounce)                    Headed Chromium via
+ "go to"  "go to wiki"                     │                                           Playwright Java, persistent
+ "go to wikipedia" (final)                 ▼                                           profile (.browser-profile)
+                                           SnapshotCollector (≤100 elements, e01..eNN) ◀── DOM snapshot + overlay
+                                           SpansExtractor (candidate regex spans)
+                                           │
+                                           ├───► TypeSafe AI Cloud API (Jev System One)
+                                           ├───► Local Laya FastAPI Server (Python)
+                                           └───► Built-in Offline Heuristic Engine
+                                           │
+                                           ▼
+                                           PolicyEngine (calibrated safety gates) ───▶ Highlight / Toast /
+ control dashboard ◀────────────────────── WebSocket State Broadcast                  Numbered Badges
+ (/dashboard via JSP)                      (decision + gate bars + logs + latency)
 ```
 
-## Run it
+```mermaid
+flowchart TD
+    A["🎙️ Spoken Utterance"] --> B["🌐 Control Dashboard (JSP)"]
+    B -->|Web Speech API stream| C["⚡ Spring WebSocket (/ws)"]
+    C --> D["🎛️ Controller.java"]
+    D -->|Debounce & State Budget| E["📸 SnapshotCollector & SpansExtractor"]
+    E --> F{"🤖 Decision Backend"}
+    F -->|TYPESAFE_API_KEY| G["☁️ TypeSafe Cloud API"]
+    F -->|127.0.0.1:8000| H["🐍 Local Laya Server"]
+    F -->|Default / Fallback| I["⚙️ Offline Heuristic Engine"]
+    G --> J["🛡️ PolicyEngine.java"]
+    H --> J
+    I --> J
+    J --> K{"⚖️ Policy Verdict"}
+    K -->|act| L["🚀 Executor.java (Playwright)"]
+    K -->|confirm| M["⚠️ Destructive Action Toast"]
+    K -->|disambiguate| N["🔢 In-Page Numbered Badges"]
+    K -->|wait| O["⏳ Wait for Speech Completion"]
+    K -->|ignore| P["🚫 Ignore Ambient Speech"]
+    L --> Q["🌐 Controlled Browser Mutated"]
+    Q --> R["📡 Real-Time UI State Broadcast"]
+```
 
-Requirements: Node ≥ 20 (tested on 22), npm, Chrome or Edge for the microphone (the Web Speech API
-is not available in Firefox/Safari). Real API calls cost ~$0.0002 each.
+---
+
+## ✨ Key Features
+
+- **Sub-Second Streaming Execution**: Speculative multi-question fan-out allows closed-set actions (e.g. *"go back"*, *"scroll down"*) to trigger before you even finish speaking.
+- **Triple-Engine Decision Backend**:
+  1. **TypeSafe AI Cloud API**: High-accuracy System One classification (`jev-1.13.0`) when `TYPESAFE_API_KEY` is provided.
+  2. **Local Laya FastAPI Server**: Run local ML inference via `python3 laya_server.py` at `http://127.0.0.1:8000`.
+  3. **Zero-Dependency Heuristic Engine**: Fast, deterministic offline rule evaluator that runs out-of-the-box with zero API keys or external services.
+- **Strict Safety & Gate Policies**:
+  - `is_command` ($\ge 0.50$): Ignores background chatter and ambient side-talk.
+  - `complete` ($\ge 0.60$): Distinguishes partial commands from full intents.
+  - `destructive` ($\ge 0.50$): Pauses high-risk clicks (*buy*, *delete*, *submit*, *logout*) and requests spoken confirmation (*"confirm"* or *"cancel"*).
+  - `disambiguate`: Injects numbered badges on ambiguous elements so you can simply say *"two"*.
+- **DOM Compaction & Viewport Sorting**: Collects interactive candidates, prioritizing viewport elements and capping text lengths to maintain minimal state overhead.
+- **Built-in User Authentication & Portal**: SQLite JDBC persistence (`voicebrowser.db`) powering secure user registration, session authentication, and user profile management rendered with Spring MVC & JSP.
+
+---
+
+## 🛠️ Technology Stack
+
+| Component | Technology | Version | Purpose |
+| :--- | :--- | :--- | :--- |
+| **Runtime** | Java OpenJDK | 21+ | Application platform |
+| **Framework** | Spring Boot | 3.3.4 | Core container, MVC routing, dependency injection |
+| **Automation** | Playwright Java | 1.47.0 | Headed / headless Chromium driver & CDP integration |
+| **Streaming** | Spring WebSocket (JSR-356) | 3.3.4 | Low-latency bi-directional speech & state streaming |
+| **Views & UI** | Tomcat Jasper & JSTL | Jakarta JSP 3.0 | Server-rendered Login, Signup, Portal & Dashboard |
+| **Persistence** | SQLite JDBC | 3.46.1.3 | Raw JDBC authentication repository (`DatabaseService`) |
+| **Serialization**| Jackson Databind | 2.17.2 | DTO and WebSocket message serialization |
+| **Testing** | JUnit 5 Platform | 5.10.3 | Unit & integration test suite |
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- **Java 21** or later (`java -version`)
+- **Google Chrome** or **Microsoft Edge** (for the Web Speech API microphone stream)
+- Embedded Maven 3.9.9 is included in `./apache-maven-3.9.9` (system Maven also works)
+
+### 1. Clone & Configure
 
 ```bash
 git clone https://github.com/moritzkremb/jev-voice-browser.git
 cd jev-voice-browser
-npm install
-npx playwright install chromium
-cp .env.example .env          # paste your TypeSafe API key (https://console.typesafe.ai/keys)
-./run.sh                      # starts the server on http://localhost:8787
+
+# Optional: Set TypeSafe API Key for cloud evaluation
+cp .env.example .env
+# Edit .env and set: TYPESAFE_API_KEY=your_key_here
 ```
 
-Then open **http://localhost:8787 in your normal Chrome**, click **Start mic**, allow the
-microphone, and speak. A separate Chromium window (the *controlled* browser) is opened by the server;
-that is the one that acts. Keep the control page visible on a second screen / half the screen for
-the live probability bars.
+### 2. Run the Application
 
-Options: `./run.sh --port 9000`, `--host 0.0.0.0` (LAN, see Security), `--start-url https://…`, `--headless` (CI), or attach to a Chrome
-you already have running instead of launching one:
+Launch the Spring Boot server using the convenience wrapper:
 
 ```bash
-# start your Chrome with a debugging port, then:
-./run.sh --cdp http://127.0.0.1:9222
+./run.sh
+# Or directly:
+./run-java.sh
 ```
 
-Set the key yourself instead of `.env`: `export TYPESAFE_API_KEY=…` (legacy `JEV_API_KEY` is
-also accepted) and `npm start`. The key is only ever read by the Node process; the control page
-never sees it.
+The application will start on **`http://localhost:8787`** and automatically launch a controlled Chromium window.
 
-**Security:** the server listens on `127.0.0.1` only. Anyone who can reach the control port can
-drive the browser and spend your API credits, so only use `--host 0.0.0.0` on a network you trust.
-The controlled Chromium uses a persistent profile in `.browser-profile/` (gitignored) — don't log
-into accounts there that you wouldn't want a mis-heard "click place order" to touch; destructive
-clicks require a spoken "confirm", but treat that as a convenience, not a guarantee.
+### 3. Log In & Control
 
-No microphone? Type a command into the text box on the control page and press Enter.
+1. Open **`http://localhost:8787`** in your standard **Google Chrome** or **Microsoft Edge** browser.
+2. Sign in using the seeded default demo account:
+   - **Username**: `admin`
+   - **Password**: `admin123`
+   *(or click **Sign Up** to create a new user profile)*.
+3. On the dashboard, click **"Start mic"**, grant microphone permissions, and start speaking commands!
+4. *(Optional)* No mic? Type any command into the dashboard text input and hit **Enter**.
 
-## What you can say
+---
 
-| Say | What happens |
-| --- | --- |
-| "go to wikipedia" / "open youtube" / "go to example dot com" | navigates (site list or spoken domain, code owns the URLs) |
-| "search for alan turing" | uses the page's own search box if it has one (Wikipedia, YouTube…), else DuckDuckGo |
-| "search youtube for lofi beats" | site-specific search URL template |
-| "click the first result" / "click the new link" / "open the comments tab" | clicks the element Jev picked from the snapshot; ambiguous → numbered overlays, say "two" |
-| "type hello world into the search box" | types verbatim (Jev picked the span, code copies it) |
-| "scroll down a bit" / "scroll to the bottom" / "scroll up a page" | scroll with amount from a 3-level Score |
-| "go back" / "go forward" / "reload" | history |
-| "open a new tab" / "close this tab" / "next tab" | tabs |
-| "click place order" | destructive → toast asks you to say **"confirm"** (or "cancel") |
-| "so anyway I think we should get lunch" | ignored (`is_command` ≈ 0.02) |
+## ⚙️ Launch Options & JVM Flags
 
-Two commands in one breath work too: "go to example dot com and click the more information link".
-
-## How a decision is made
-
-Every transcript update produces exactly one Jev request (`src/jev.js`). State:
-
-```json
-{ "transcript": "open the documentation",
-  "page": { "url": "https://typesafe.ai/jev", "title": "Jev", "site": "generic" },
-  "elements": ["e03 link \"Documentation\" → docs.typesafe.ai", "e07 link \"Read the docs\" → docs.typesafe.ai", "..."],
-  "context": {
-    "previous_page": { "url": "https://duckduckgo.com/?q=jev+typesafe", "title": "jev typesafe at DuckDuckGo" },
-    "recent_actions": [
-      { "said": "click the first result", "action": "click_element", "target": "link \"TypeSafe — Jev\"", "outcome": "navigated to typesafe.ai/jev", "seconds_ago": 6 },
-      { "said": "search for jev typesafe", "action": "navigate_url", "outcome": "navigated to duckduckgo.com/?q=jev+typesafe", "seconds_ago": 25 } ] } }
-```
-
-`context` is the conversation so far: the page you came from and the last three executed actions
-(what you said, what was done, what happened). It is what makes "go back to the results", "no, not
-that one", "the other one" and "open its documentation" resolvable — Jev has no memory between
-requests, so the memory lives in the state.
-
-Questions (all in `src/constants.js`, asked together, answered in parallel):
-
-| id | type | answers |
-| --- | --- | --- |
-| `intent` | Choice | navigate_url · search_web · click_element · type_into_field · select_option · press_enter · scroll_down/up · go_back/forward · reload · open/close/switch tab · confirm · cancel · none — each option has `{what, not_for, examples}` |
-| `target` | Choice | the element ids on the page + `none` |
-| `site` | Choice | google · duckduckgo · the_web · youtube · wikipedia · github · amazon · reddit · twitter_x · hacker_news · example_com · other_named_site · none |
-| `complete` | Noul | has the user finished the command? (lets us act on partial speech) |
-| `is_command` | Noul | is the user addressing the browser at all? |
-| `destructive` | Noul | would it submit / buy / delete / send? |
-| `scroll_amount` | Score | a little · one page · to the end |
-| `text_span` | Choice | verbatim candidate spans extracted by regex (+ `none`) — only when the transcript has any |
-| `url_span` | Choice | domain-looking spans (+ `none`) — only when present |
-| `tab_direction` | Choice | next · previous · first · none |
-| `is_correction` | Noul | is the user rejecting / redirecting the most recent action in `context.recent_actions`? — only asked when there is history |
-
-Policy (`src/policy.js`, thresholds `T` in `constants.js`), shown live in the UI as a gate table:
-
-0. `is_correction ≥ 0.6` on a finished phrase: with no confident new command ("no, not that one",
-   "undo that") → reverse the last action (click/navigate → back, typing → clear, scroll → opposite);
-   with a new target ("no, the other one") → the previously clicked element is excluded from the
-   candidates. A confident closed-set command ("go back" after a scroll) is never treated as a correction.
-1. `is_command ≥ 0.5` else **ignore**
-2. `intent.confidence ≥ 0.55` and not `none` else **wait**
-3. `complete ≥ 0.6`, or 900 ms of silence, or the recognizer's final result — else **wait**
-4. free-text intents (search / type) additionally wait for the final result or 600 ms silence, so a
-   query is never truncated ("search for alan" vs "search for alan turing")
-5. build the action in code: URL templates, search-box fallback, verbatim span copy
-6. click/type targets need `target.confidence ≥ 0.45` and top probability ≥ 0.35, else the top 2–3
-   candidates get numbered overlays in the page and a spoken number picks one (no model call)
-7. `destructive ≥ 0.5` on a click → **confirm** (say "confirm" / "cancel")
-
-Requests overlap: up to 2 in flight; older ones are cancelled with `AbortSignal`. A response for a
-partial transcript may still act if the words already commit to a closed-set action ("go back"),
-but is never treated as final for free text.
-
-## Project layout
-
-```
-src/constants.js   MODEL pin, thresholds, every question text — the one file to review on camera
-src/jev.js         builds state + questions, calls @typesafe-ai/sdk, returns answers/latency/usage/cost
-src/spans.js       candidate extraction (text payloads, spoken URLs, number words) — code, not Jev
-src/snapshot.js    in-page element collector (tags data-vb-id), compaction + size guard, site detection
-src/policy.js      answers → act / wait / ignore / confirm / disambiguate, with reasons
-src/executor.js    Playwright actions + overlay feedback
-src/browser.js     launch headed Chromium (persistent profile) or attach via CDP; tabs
-src/overlay.js     injected highlight / toast / numbered badges
-src/controller.js  debounce, in-flight management, one action per utterance, chaining, stats
-src/server.js      Express + ws, serves src/public/index.html (control page)
-scripts/demo.js    word-by-word replay against real sites = end-to-end test
-test/unit/         spans, snapshot compaction, policy (mocked Jev), controller (mocked Jev + browser), context encoding + corrections
-test/integration/  34 real-API cases on captured page fixtures (incl. context / correction), prints pass rate + latency
-```
-
-## Tests and demo
+Customize the runtime environment via system properties:
 
 ```bash
-npm test                 # unit tests (no network)
-npm run test:integration # real Jev calls on fixtures; prints pass rate (expects ≥ 90%)
-npm run demo             # headed replay of 16 spoken commands against real sites, asserts URLs
-npm run demo:ci          # same, headless; exit code 1 on failure
-node scripts/demo.js --headless --only 1,2,3 --word-ms 250
+# Run headless (ideal for CI/CD or servers without a display)
+./run.sh -Dspring-boot.run.jvmArguments="-Dheadless=true"
+
+# Start on a custom URL
+./run.sh -Dspring-boot.run.jvmArguments="-DstartUrl=https://news.ycombinator.com"
+
+# Attach to an existing Chrome instance via CDP (remote debugging)
+# Launch Chrome first: google-chrome --remote-debugging-port=9222
+./run.sh -Dspring-boot.run.jvmArguments="-Dcdp=http://127.0.0.1:9222"
+
+# Custom port
+./run.sh -Dspring-boot.run.jvmArguments="-Dserver.port=9000"
 ```
 
-Latest measured (Sep 2026, from this machine): integration 34/34 (100%, incl. 7 context/correction cases), Jev latency avg ≈ 330 ms
-(p50 ≈ 300 ms, 3–6k input tokens per request; the first request of a process is ~700 ms for the
-TLS handshake), last-word→decision ≈ 300 ms including the 200 ms debounce, whole demo ≈ $0.01.
+> **Security Note:** The server listens on `127.0.0.1` by default. Anyone with network access to the port can drive the browser. To expose across a trusted LAN, specify:
+> `-Dserver.address=0.0.0.0 -Dvoicebrowser.allowed-origins=http://<your-ip>:8787`.
 
-## Notes and limitations
+---
 
-- Web Speech API only in Chrome/Edge; it sends audio to Google. Interim results arrive in bursts, so
-  "acting before you finish" is most visible on longer sentences.
-- One action per utterance; extra words after an executed command are treated as a new command
-  only if there are at least two of them.
-- Element snapshot is capped at 100 items (viewport first) and 60 chars of text each — deep pages
-  need a scroll before "click …" finds below-fold items. Elements inside iframes are not seen.
-- Sites with heavy bot protection (Google consent, some search engines in headless mode) may not
-  render results; the demo uses Wikipedia, example.com, Hacker News and DuckDuckGo.
-- `select_option` matches the option label in code by substring; `switch_tab` cycles.
-- Confidence gates are calibrated on `jev-1.13.0`; re-check `T` if you move the model alias.
+## 🗣️ Spoken Voice Commands
+
+Below is a quick reference of supported voice actions. For comprehensive documentation and exact offline phrases, see [COMMANDS.md](file:///home/muwafaq/Documents/dev/abcd/java/jev-voice-browser/COMMANDS.md).
+
+| Category | Spoken Command Examples | Action Taken |
+| :--- | :--- | :--- |
+| **Navigation** | `"go to wikipedia"`<br>`"open youtube"`<br>`"go to news dot ycombinator dot com"` | Navigates to target website or converts spoken domain |
+| **History** | `"go back"` · `"go forward"` · `"reload"` | Browser navigation history controls |
+| **Search** | `"search for alan turing"`<br>`"search youtube for lofi beats"` | Searches current page search field, or target site directly |
+| **Clicking** | `"click documentation"`<br>`"click the first result"`<br>`"open the second link"` | Clicks target element by visible text, ordinal, or tag |
+| **Disambiguation** | Spoken number: `"one"`, `"two"`, `"three"` | Selects candidate from visual numbered overlays |
+| **Safety / Confirm**| `"confirm"` · `"cancel"` | Confirms or aborts destructive clicks (*buy*, *delete*, *sign out*) |
+| **Typing** | `"type hello world into search"`<br>`"press enter"` · `"clear form"` | Types text verbatim, submits keys, or resets inputs |
+| **Scrolling** | `"scroll down"` · `"scroll up"`<br>`"scroll to top"` · `"scroll to bottom"` | Smooth viewport scrolling |
+| **Tabs** | `"open new tab"` · `"close tab"`<br>`"next tab"` · `"switch to previous tab"` | Browser tab management |
+| **Media & Audio** | `"pause"` · `"play"` · `"volume up"`<br>`"skip 10 seconds"` · `"speed 1.5x"` | Controls `<video>` and `<audio>` playback |
+| **YouTube Tools** | `"turn on captions"` · `"toggle theater mode"`<br>`"show comments"` · `"subscribe"` | YouTube-specific page automation |
+
+---
+
+## 🛡️ Policy Gates & Thresholds
+
+Decisions pass through safety gates calibrated in [Constants.java](file:///home/muwafaq/Documents/dev/abcd/java/jev-voice-browser/src/main/java/ai/typesafe/voicebrowser/model/Constants.java):
+
+```
+Utterance ──▶ [ is_command ≥ 0.50 ] ──▶ [ intent confidence ≥ 0.55 ] ──▶ [ complete ≥ 0.60 ]
+                     │                                │                                │
+                   Fail                             Fail                             Fail
+                     ▼                                ▼                                ▼
+                  IGNORE                            WAIT                             WAIT
+```
+
+| Gate | Threshold ($T$) | Pass Condition | Fail Action |
+| :--- | :--- | :--- | :--- |
+| **`is_command`** | $\ge 0.50$ | Speech is directed at the browser | `ignore` (drops side-talk & ambient noise) |
+| **`intent`** | $\ge 0.55$ | Detected intent is confident & not `none` | `wait` (awaits further speech) |
+| **`complete`** | $\ge 0.60$ | Phrase is syntactically complete | `wait` (or triggers on silence timeout) |
+| **`target`** | $\ge 0.50$ | Top candidate element confidence | `disambiguate` (shows numbered badges) |
+| **`destructive`**| $< 0.50$ | Safe action | `confirm` (pauses and asks user to confirm) |
+
+---
+
+## 🗂️ Project Structure
+
+```text
+jev-voice-browser/
+├── pom.xml                                    # Maven project definition (Java 21, Spring Boot 3)
+├── run.sh / run-java.sh                       # Launch scripts with embedded Maven
+├── laya_server.py                             # Optional local FastAPI Laya ML model server
+├── voicebrowser.db                            # SQLite database for user authentication
+├── COMMANDS.md                                # Comprehensive spoken voice command dictionary
+├── PROJECT_DOCS.md                            # Detailed architectural & engineering documentation
+│
+├── src/main/java/ai/typesafe/voicebrowser/
+│   ├── VoiceBrowserApplication.java           # Spring Boot entry point & Playwright bean setup
+│   ├── browser/
+│   │   ├── BrowserManager.java                # Persistent Chromium context & lifecycle
+│   │   ├── Executor.java                      # Playwright action executor (clicks, typing, scroll)
+│   │   └── OverlayScript.java                 # Injected CSS/JS for highlights, toasts & badges
+│   ├── config/
+│   │   ├── AuthFilter.java                    # Session filter protecting dashboard & portal
+│   │   └── WebSocketConfig.java               # Spring WebSocket route configuration (/ws)
+│   ├── controller/
+│   │   ├── AuthController.java                # Spring MVC controller for Login/Signup/Portal/Dashboard
+│   │   ├── Controller.java                    # Central orchestrator & transcript debouncer
+│   │   ├── StateApiController.java            # REST endpoints (/api/state, /api/questions)
+│   │   └── WebSocketsHandler.java             # Bi-directional WebSocket streaming handler
+│   ├── model/
+│   │   ├── Action.java                        # Browser action domain representation
+│   │   ├── Constants.java                     # Calibrated thresholds, URLs & questions
+│   │   ├── ElementSnapshot.java               # DOM candidate element representation
+│   │   ├── PolicyResult.java                  # Gate decision container
+│   │   └── User.java                          # User identity model
+│   └── service/
+│       ├── DatabaseService.java               # SQLite JDBC persistence layer
+│       ├── JevClient.java                     # Triple-backend decision client (Cloud / Laya / Heuristic)
+│       ├── PolicyEngine.java                  # Multi-gate policy decision evaluator
+│       ├── SnapshotCollector.java             # DOM element filtering & compaction
+│       └── SpansExtractor.java                # Regex candidate span & spoken URL parser
+│
+├── src/main/webapp/WEB-INF/jsp/               # Server-rendered JSP views
+│   ├── login.jsp                              # Login portal
+│   ├── signup.jsp                             # Registration portal
+│   ├── portal.jsp                             # User profile & registered users table
+│   └── dashboard.jsp                          # Controlling dashboard UI with live bars & element feed
+│
+└── src/test/java/ai/typesafe/voicebrowser/    # JUnit 5 test suite
+    ├── service/CommandExecutionTest.java      # Heuristic and command flow tests
+    ├── service/DatabaseServiceTest.java       # SQLite JDBC isolation tests
+    ├── service/PolicyEngineTest.java          # Policy gate verification tests
+    ├── service/SnapshotCollectorTest.java     # Viewport element sorting & compaction tests
+    └── service/SpansExtractorTest.java        # Candidate span extraction tests
+```
+
+---
+
+## 🧪 Testing
+
+Run the full test suite using the embedded Maven wrapper:
+
+```bash
+./apache-maven-3.9.9/bin/mvn test
+# Or if you have maven installed:
+mvn test
+```
+
+Unit and integration tests cover:
+- **`CommandExecutionTest`**: Natural language commands, media controls, YouTube automation, and search fallbacks.
+- **`DatabaseServiceTest`**: User registration, password authentication, and constraint enforcement against an isolated in-memory test database.
+- **`PolicyEngineTest`**: Threshold validation for intent confidence, completeness, and destructive gates.
+- **`SnapshotCollectorTest`**: Viewport element prioritization and token compaction limits.
+- **`SpansExtractorTest`**: Spoken URL conversion (`dot`, `slash`), number words, and candidate text extraction.
+
+---
+
+## 📄 License
+
+This project is open-source under the [MIT License](file:///home/muwafaq/Documents/dev/abcd/java/jev-voice-browser/LICENSE).
